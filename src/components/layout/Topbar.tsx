@@ -65,10 +65,9 @@ export function Topbar({ currentPath, onOpenMobileMenu }: TopbarProps) {
         <div className="flex min-w-0 items-center gap-2">
           <button
             onClick={onOpenMobileMenu}
-            className="rounded-lg border p-2 md:hidden"
-            style={{ borderColor: "rgba(255,255,255,0.2)" }}
+            className="rounded-lg border border-line p-2 text-sub transition hover:bg-slate-50 md:hidden"
           >
-            <Menu className="h-4 w-4 text-white" />
+            <Menu className="h-4 w-4" />
           </button>
           <div className="flex min-w-0 items-center gap-2 text-sub">
             <span className="hidden shrink-0 text-sm sm:inline">Workspace</span>

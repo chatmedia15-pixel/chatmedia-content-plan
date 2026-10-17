@@ -90,6 +90,8 @@ export function PlanningPage() {
         production_status: values.production_status,
         workflow_stage: "planning",
         planned_date: values.planned_date,
+        shoot_date: values.shoot_date || null,
+        talent_count: Number(values.talent_count) || 0,
       });
       push("Konten ditambahkan");
       setShowAdd(false);
@@ -117,6 +119,8 @@ export function PlanningPage() {
           style: values.style,
           production_status: values.production_status,
           planned_date: values.planned_date,
+          shoot_date: values.shoot_date || null,
+          talent_count: Number(values.talent_count) || 0,
         },
       });
       push("Perubahan disimpan");
@@ -252,6 +256,14 @@ export function PlanningPage() {
                     "{p.hook}"
                   </div>
                 )}
+                {/* 👤 Dibuat oleh */}
+                <div className="flex items-center gap-1.5 text-[10px] text-sub">
+                  <span>👤</span>
+                  <span className="truncate">
+                    Dibuat oleh{" "}
+                    <strong>{p.created_by_name ?? "Unknown"}</strong>
+                  </span>
+                </div>
 
                 <div className="mt-1 grid grid-cols-2 gap-2">
                   <button
@@ -326,6 +338,8 @@ export function PlanningPage() {
               caption: editing.caption ?? "",
               cta: editing.cta ?? "",
               link_ref: editing.link_ref ?? "",
+              talent_count: String(editing.talent_count ?? 0),
+              shoot_date: editing.shoot_date ?? "",
               production_status: editing.production_status ?? "Direncanakan",
               planned_date: editing.planned_date ?? "",
             }}

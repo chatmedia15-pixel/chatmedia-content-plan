@@ -99,6 +99,8 @@ export function CalendarPage() {
           style: values.style,
           production_status: values.production_status,
           planned_date: values.planned_date,
+          shoot_date: values.shoot_date || null, // ← TAMBAH
+          talent_count: Number(values.talent_count) || 0,
         },
       });
       push("Perubahan disimpan");
@@ -283,6 +285,14 @@ export function CalendarPage() {
                     </Pill>
                   )}
                 </div>
+                {/* 👤 Dibuat oleh */}
+                <div className="flex items-center gap-1.5 text-[10px] text-sub">
+                  <span>👤</span>
+                  <span className="truncate">
+                    Dibuat oleh{" "}
+                    <strong>{p.created_by_name ?? "Unknown"}</strong>
+                  </span>
+                </div>
 
                 {/* Dropdown status */}
                 <div className="flex items-center justify-between rounded-lg border border-line bg-slate-50 px-3 py-2">
@@ -359,6 +369,8 @@ export function CalendarPage() {
               caption: editing.caption ?? "",
               cta: editing.cta ?? "",
               link_ref: editing.link_ref ?? "",
+              talent_count: String(editing.talent_count ?? 0),
+              shoot_date: editing.shoot_date ?? "", // ← TAMBAH
               production_status: editing.production_status ?? "Direncanakan",
               planned_date: editing.planned_date ?? "",
             }}

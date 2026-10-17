@@ -2,6 +2,21 @@ import { supabase } from "./supabase/client";
 import type { ContentItem, ContentItemInput } from "@/types/content";
 import type { WorkflowStage } from "@/lib/constants";
 
+// ── Helper: Format error Supabase ─────────────
+function fmtError(error: unknown): Error {
+  if (error && typeof error === "object") {
+    const e = error as {
+      code?: string;
+      message?: string;
+      details?: string;
+      hint?: string;
+    };
+    const parts = [e.code, e.message, e.details, e.hint].filter(Boolean);
+    return new Error(parts.join(" | ") || "Unknown Supabase error");
+  }
+  return new Error(String(error));
+}
+
 export const contentService = {
   /** Ambil semua content_items, optional filter */
   async list(filters?: {
@@ -39,12 +54,25 @@ export const contentService = {
 
   /** Buat item baru */
   async create(input: ContentItemInput): Promise<ContentItem> {
+    // Ambil email dari session yang login
+    const { data: authData } = await supabase.auth.getUser();
+    const userEmail = authData?.user?.email ?? null;
+
+    const payload = {
+      ...input,
+      created_by_name: userEmail,
+    };
+
+    console.log("[content.create] payload:", payload);
     const { data, error } = await supabase
       .from("content_items")
-      .insert(input)
+      .insert(payload)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      console.error("[content.create] error:", error);
+      throw fmtError(error);
+    }
     return data as ContentItem;
   },
 
@@ -95,7 +123,26 @@ export const contentService = {
       p_new_stage: newStage,
       p_published_url: publishedUrl ?? null,
     });
-    if (error) throw error;
+    if (error) {
+      console.error("[content.moveStage] RPC error:", error);
+      throw fmtError(error);
+    }
+
+    // 🎯 Kirim notifikasi WA kalau publish
+    if (newStage === "published") {
+      console.log("[WA] Memanggil notify-publish untuk contentId:", id);
+
+      supabase.functions
+        .invoke("notify-publish", { body: { contentId: id } })
+        .then((res) => {
+          console.log("[WA] Response:", res.data);
+          if (res.error) {
+            console.error("[WA] Error:", res.error);
+          }
+        })
+        .catch((err) => console.error("[WA] Exception:", err));
+    }
+
     return data as ContentItem;
   },
 };

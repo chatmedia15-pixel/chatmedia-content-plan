@@ -48,11 +48,21 @@ export function ContentDetailModal({ item, onClose }: ContentDetailModalProps) {
         {/* Info grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <InfoRow label="Brand" value={brand?.name ?? item.brand_id} />
-          <InfoRow label="Tanggal" value={fmtDate(item.planned_date)} />
+          <InfoRow label="Tanggal Publish" value={fmtDate(item.planned_date)} />
+          <InfoRow
+            label="Tanggal Take"
+            value={item.shoot_date ? fmtDate(item.shoot_date) : "-"}
+          />
           <InfoRow label="Platform" value={item.platform} />
           <InfoRow label="Format" value={item.format ?? "-"} />
           <InfoRow label="Pillar" value={item.content_pillar ?? "-"} />
           <InfoRow label="Objective" value={item.objective ?? "-"} />
+          <InfoRow
+            label="Jumlah Talent"
+            value={`${item.talent_count ?? 0} orang`}
+          />
+          <InfoRow label="Dibuat Oleh" value={item.created_by_name ?? "-"} />
+          <InfoRow label="Dibuat Pada" value={fmtDate(item.created_at)} />
         </div>
 
         {/* Sections */}

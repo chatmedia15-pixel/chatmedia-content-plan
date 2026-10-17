@@ -213,6 +213,14 @@ export function PublishedPage() {
                     </Pill>
                   )}
                 </div>
+                {/* 👤 Dibuat oleh */}
+                <div className="flex items-center gap-1.5 text-[10px] text-sub">
+                  <span>👤</span>
+                  <span className="truncate">
+                    Dibuat oleh{" "}
+                    <strong>{p.created_by_name ?? "Unknown"}</strong>
+                  </span>
+                </div>
 
                 {/* Tanggal */}
                 {date && (

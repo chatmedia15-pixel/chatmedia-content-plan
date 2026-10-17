@@ -21,10 +21,12 @@ export interface ContentItem {
   platform: Platform;
   format: string | null;
   objective: string | null;
+  talent_count: number | null;
   style: string | null;
   production_status: ProductionStatus | string;
   workflow_stage: WorkflowStage;
   planned_date: string | null;
+  shoot_date: string | null;
   published_at: string | null;
   link_ref: string | null;
   published_url: string | null;
@@ -32,6 +34,7 @@ export interface ContentItem {
   reason: string | null;
   notes: string | null;
   created_by: string | null;
+  created_by_name: string | null;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -126,12 +129,15 @@ export interface ContentItemInput {
   style?: string | null;
   production_status?: string;
   workflow_stage?: WorkflowStage;
+  talent_count?: number | null;
   planned_date?: string | null;
+  shoot_date?: string | null;
   link_ref?: string | null;
   published_url?: string | null;
   duration_seconds?: number | null;
   reason?: string | null;
   notes?: string | null;
+  created_by_name?: string | null;
 }
 /** Payload untuk create content_idea */
 export interface ContentIdeaInput {

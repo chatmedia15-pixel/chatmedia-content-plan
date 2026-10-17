@@ -25,6 +25,8 @@ export interface ContentFormValues {
   caption: string;
   cta: string;
   link_ref: string;
+  talent_count: string;
+  shoot_date: string;
   production_status: string;
   planned_date: string;
 }
@@ -50,6 +52,8 @@ function defaultValues(): ContentFormValues {
     caption: "",
     cta: "",
     link_ref: "",
+    talent_count: "0",
+    shoot_date: "",
     production_status: "Direncanakan",
     planned_date: toDateInput(new Date()),
   };
@@ -100,14 +104,12 @@ export function ContentForm({
     }));
   }
 
-  // ── Generate caption (dengan dukungan regenerate) ──
   async function handleGenerateCaption() {
     if (!form.title.trim()) {
       setAiError("Isi judul dulu sebelum generate caption");
       return;
     }
 
-    // Simpan caption sekarang ke history (kalau ada)
     if (form.caption.trim()) {
       setAiHistory((h) => [form.caption, ...h].slice(0, 5));
     }
@@ -130,7 +132,6 @@ export function ContentForm({
     }
   }
 
-  // ── Undo ke caption sebelumnya ────────────────
   function handleUndo() {
     if (aiHistory.length === 0) return;
     const [prev, ...rest] = aiHistory;
@@ -139,7 +140,6 @@ export function ContentForm({
     setRegenCount((c) => Math.max(0, c - 1));
   }
 
-  // ── Reset ke caption awal (dari initial) ──────
   function handleReset() {
     set("caption", initial?.caption ?? "");
     setAiHistory([]);
@@ -163,13 +163,22 @@ export function ContentForm({
       className="flex flex-col gap-3 text-sm"
     >
       {/* Baris 1 */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <label className="flex flex-col gap-1 text-xs text-sub">
-          <span className="font-medium">Tanggal</span>
+          <span className="font-medium">Tanggal Publish</span>
           <input
             type="date"
             value={form.planned_date}
             onChange={(e) => set("planned_date", e.target.value)}
+            className={inputCls}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-sub">
+          <span className="font-medium">Tanggal Take</span>
+          <input
+            type="date"
+            value={form.shoot_date}
+            onChange={(e) => set("shoot_date", e.target.value)}
             className={inputCls}
           />
         </label>
@@ -252,9 +261,8 @@ export function ContentForm({
         />
       </label>
 
-      {/* Caption — dengan AI generate + regenerate */}
+      {/* Caption dengan AI */}
       <div className="flex flex-col gap-1.5">
-        {/* Header row */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-sub">Caption</span>
@@ -270,49 +278,36 @@ export function ContentForm({
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Tombol Undo — kalau ada history */}
             {hasHistory && (
               <button
                 type="button"
                 onClick={handleUndo}
                 disabled={genCaption.isPending}
                 className="flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-sub transition hover:bg-slate-50 disabled:opacity-60"
-                title="Kembalikan ke caption sebelumnya"
               >
                 <Undo2 className="h-3 w-3" />
                 Undo
               </button>
             )}
 
-            {/* Tombol Reset — kalau sudah ada caption tapi mau kosongkan */}
             {hasCaption && (
               <button
                 type="button"
                 onClick={handleReset}
                 disabled={genCaption.isPending}
                 className="flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-sub transition hover:bg-slate-50 disabled:opacity-60"
-                title="Reset caption ke kondisi awal"
               >
                 <RotateCcw className="h-3 w-3" />
                 Reset
               </button>
             )}
 
-            {/* Tombol Generate / Regenerate */}
             <button
               type="button"
               onClick={handleGenerateCaption}
               disabled={genCaption.isPending || !form.title.trim()}
               className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition hover:bg-ai-bg disabled:opacity-60"
-              style={{
-                borderColor: "#C7D2FE",
-                color: "#7C3AED",
-              }}
-              title={
-                hasCaption
-                  ? "Generate caption baru (hasil berbeda)"
-                  : "Generate caption otomatis dengan AI"
-              }
+              style={{ borderColor: "#C7D2FE", color: "#7C3AED" }}
             >
               {genCaption.isPending ? (
                 <>
@@ -334,7 +329,6 @@ export function ContentForm({
           </div>
         </div>
 
-        {/* Textarea */}
         <textarea
           rows={5}
           value={form.caption}
@@ -349,27 +343,6 @@ export function ContentForm({
           disabled={genCaption.isPending}
         />
 
-        {/* Info hint saat pertama kali */}
-        {!hasCaption && !genCaption.isPending && form.title.trim() && (
-          <div className="text-[10px] text-sub">
-            💡 Isi Hook dulu untuk hasil caption yang lebih optimal, lalu klik{" "}
-            <strong>Generate AI</strong>.
-          </div>
-        )}
-
-        {/* Info regenerate */}
-        {hasCaption && !genCaption.isPending && (
-          <div className="flex items-center gap-1 text-[10px] text-sub">
-            🔄 Tidak puas? Klik <strong>Regenerate</strong> untuk hasil berbeda
-            {hasHistory && (
-              <>
-                , atau <strong>Undo</strong> untuk kembali
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Error */}
         {aiError && (
           <div className="rounded-lg bg-danger-bg px-2 py-1 text-[10px] text-danger">
             {aiError}
@@ -387,6 +360,22 @@ export function ContentForm({
           placeholder="https://..."
           className={inputCls}
         />
+      </label>
+
+      {/* 🆕 Jumlah Talent */}
+      <label className="flex flex-col gap-1 text-xs text-sub">
+        <span className="font-medium">Jumlah Talent</span>
+        <input
+          type="number"
+          min="0"
+          value={form.talent_count}
+          onChange={(e) => set("talent_count", e.target.value)}
+          placeholder="Contoh: 2"
+          className={inputCls}
+        />
+        <span className="text-[10px] text-sub">
+          Berapa orang talent yang terlibat di konten ini
+        </span>
       </label>
 
       {/* Footer */}
