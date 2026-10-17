@@ -1,20 +1,66 @@
-import { useState } from "react";
-import { Sparkles, Loader2, Copy, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Loader2, Copy, Check, Trash2, History } from "lucide-react";
 import { Card, Pill, SectionHeader, AiBadge } from "@/components/ui";
 import { useAnalyzeInsights } from "@/hooks/useAi";
 import { useToast } from "@/hooks/useToast";
-import { BRANDS, statusStyle } from "@/lib/constants";
+import { BRANDS } from "@/lib/constants";
 import { useContentItems } from "@/hooks/useContentItems";
 
+// ─────────────────────────────────────────────────────────
+// Storage
+// ─────────────────────────────────────────────────────────
+const STORAGE_KEY = "chatmedia:insight-ai-result";
+
+interface CachedInsight {
+  result: string;
+  generatedAt: number;
+  contentCount: number;
+}
+
+function loadCache(): CachedInsight | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as CachedInsight;
+  } catch {
+    return null;
+  }
+}
+
+function saveCache(data: CachedInsight) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearCache() {
+  localStorage.removeItem(STORAGE_KEY);
+}
+
+// ─────────────────────────────────────────────────────────
+// Komponen
+// ─────────────────────────────────────────────────────────
 export function InsightsPage() {
   const { push } = useToast();
   const analyze = useAnalyzeInsights();
   const contentQuery = useContentItems();
 
   const [result, setResult] = useState<string | null>(null);
+  const [generatedAt, setGeneratedAt] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
   const items = contentQuery.data ?? [];
+
+  // ── Load dari cache saat mount ─────────────────
+  useEffect(() => {
+    const cached = loadCache();
+    if (cached) {
+      setResult(cached.result);
+      setGeneratedAt(cached.generatedAt);
+    }
+  }, []);
 
   // ── Susun konteks untuk AI ─────────────────────
   function buildContext(): string {
@@ -59,6 +105,7 @@ Detail per brand:
 ${byBrand}`;
   }
 
+  // ── Analisis ───────────────────────────────────
   async function handleAnalyze() {
     if (items.length === 0) {
       push("Belum ada data konten untuk dianalisis");
@@ -66,12 +113,29 @@ ${byBrand}`;
     }
     try {
       setResult(null);
+      setGeneratedAt(null);
       const text = await analyze.mutateAsync({ context: buildContext() });
+      const now = Date.now();
       setResult(text);
+      setGeneratedAt(now);
+
+      saveCache({
+        result: text,
+        generatedAt: now,
+        contentCount: items.length,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Gagal analisis";
       push(`Gagal: ${msg}`);
     }
+  }
+
+  function handleClearCache() {
+    if (!confirm("Hapus hasil analisis yang tersimpan?")) return;
+    clearCache();
+    setResult(null);
+    setGeneratedAt(null);
+    push("Cache dibersihkan");
   }
 
   function handleCopy() {
@@ -82,6 +146,19 @@ ${byBrand}`;
     setTimeout(() => setCopied(false), 2000);
   }
 
+  // ── Info waktu ─────────────────────────────────
+  const timeLabel = generatedAt
+    ? new Date(generatedAt).toLocaleString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
+
+  const isStale = generatedAt && Date.now() - generatedAt > 24 * 60 * 60 * 1000; // > 24 jam
+
   return (
     <div className="flex animate-in flex-col gap-5 sm:gap-6">
       <SectionHeader
@@ -89,7 +166,7 @@ ${byBrand}`;
         desc="Analisis performa konten lintas brand dengan bantuan AI."
       />
 
-      {/* Status info */}
+      {/* Panel kontrol */}
       <Card className="p-4 sm:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -97,7 +174,15 @@ ${byBrand}`;
             <span className="text-sm font-semibold">Analisis dengan AI</span>
             <AiBadge />
           </div>
-          <Pill tone="neutral">{items.length} konten tersedia</Pill>
+          <div className="flex flex-wrap items-center gap-2">
+            {timeLabel && (
+              <Pill tone={isStale ? "warn" : "neutral"}>
+                <History className="h-3 w-3" />
+                {timeLabel}
+              </Pill>
+            )}
+            <Pill tone="neutral">{items.length} konten</Pill>
+          </div>
         </div>
 
         <div className="rounded-xl border border-line bg-slate-50 p-3 text-xs text-sub">
@@ -110,6 +195,13 @@ ${byBrand}`;
             <li>Breakdown status produksi</li>
           </ul>
         </div>
+
+        {isStale && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg bg-warn-bg px-3 py-2 text-xs text-warn">
+            ⚠️ Hasil analisis sudah lebih dari 24 jam. Disarankan analisis
+            ulang.
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap gap-2">
           <button
@@ -130,22 +222,32 @@ ${byBrand}`;
           </button>
 
           {result && (
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-sub transition hover:bg-slate-50"
-            >
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4 text-success" />
-                  Tersalin
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  Salin Hasil
-                </>
-              )}
-            </button>
+            <>
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-2 rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-sub transition hover:bg-slate-50"
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 text-success" />
+                    Tersalin
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    Salin Hasil
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={handleClearCache}
+                className="flex items-center gap-2 rounded-lg border border-danger-bg px-4 py-2.5 text-sm font-medium text-danger transition hover:bg-danger-bg"
+              >
+                <Trash2 className="h-4 w-4" />
+                Hapus Cache
+              </button>
+            </>
           )}
         </div>
       </Card>
@@ -161,10 +263,15 @@ ${byBrand}`;
       {/* Result */}
       {result && (
         <Card className="p-4 sm:p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-ai" />
-            <span className="text-sm font-semibold">Hasil Analisis</span>
-            <AiBadge />
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-ai" />
+              <span className="text-sm font-semibold">Hasil Analisis</span>
+              <AiBadge />
+            </div>
+            {timeLabel && (
+              <span className="text-[10px] text-sub">Dibuat: {timeLabel}</span>
+            )}
           </div>
           <div className="whitespace-pre-wrap rounded-xl bg-ai-bg p-4 text-sm leading-relaxed text-ink">
             {result}
@@ -191,6 +298,3 @@ ${byBrand}`;
     </div>
   );
 }
-
-// Helper yang tidak dipakai — mencegah unused
-void statusStyle;

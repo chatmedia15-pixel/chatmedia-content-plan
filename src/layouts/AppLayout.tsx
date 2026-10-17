@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
 
 export function AppLayout() {
   const location = useLocation();
@@ -10,6 +11,9 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-screen bg-bg">
+      {/* Reset scroll tiap pindah halaman */}
+      <ScrollToTop />
+
       <Sidebar
         currentPath={location.pathname}
         onNavigate={navigate}

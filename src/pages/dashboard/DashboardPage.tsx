@@ -112,7 +112,7 @@ export function DashboardPage() {
   // ── Handlers ──
   async function handleSyncIg() {
     try {
-      await syncIg.mutateAsync(BRANDS.map((b) => b.id));
+      await syncIg.mutateAsync();
       push("Berhasil sync Instagram");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sync gagal";
@@ -124,9 +124,6 @@ export function DashboardPage() {
     igQuery.refetch();
     push("Data IG dimuat ulang");
   }
-
-  // ── Loading state global ──
-  const isLoading = contentQuery.isLoading;
 
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
@@ -155,18 +152,6 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              onClick={() => contentQuery.refetch()}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs font-medium text-sub transition hover:bg-slate-50 disabled:opacity-60 sm:text-sm"
-            >
-              {isLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin-slow" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              )}
-              Muat Ulang
-            </button>
             <button
               onClick={() => navigate("/ide")}
               className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white transition hover:opacity-90 sm:px-4 sm:text-sm"
@@ -300,13 +285,13 @@ export function DashboardPage() {
                       style={{ backgroundColor: st.bg }}
                     >
                       <div
-                        className="text-[10px] font-medium"
+                        className="text-[11px] font-medium"
                         style={{ color: st.fg }}
                       >
                         {date?.toLocaleDateString("id-ID", { month: "short" })}
                       </div>
                       <div
-                        className="text-sm font-bold"
+                        className="text-base font-bold"
                         style={{ color: st.fg }}
                       >
                         {date?.getDate()}
@@ -328,7 +313,10 @@ export function DashboardPage() {
                         </span>
                       </div>
                     </div>
-                    <Pill tone={tone} className="!px-2 !py-0.5 !text-[10px]">
+                    <Pill
+                      tone={tone}
+                      className="!px-2.5 !py-1 !text-xs !font-semibold"
+                    >
                       {dayLabel}
                     </Pill>
                   </div>
@@ -369,7 +357,7 @@ export function DashboardPage() {
                     <div className="truncate text-xs font-medium sm:text-sm">
                       {p.title}
                     </div>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-sub">
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-sub">
                       <BrandDot id={p.brand_id} size={6} />
                       {BRANDS.find((b) => b.id === p.brand_id)?.name ??
                         p.brand_id}

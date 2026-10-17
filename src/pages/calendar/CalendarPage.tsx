@@ -255,7 +255,7 @@ export function CalendarPage() {
                     {brand?.name ?? p.brand_id}
                   </span>
                   {p.planned_date && (
-                    <Pill tone="blue" className="!text-[10px]">
+                    <Pill tone="blue" className="!text-sm !font-semibold">
                       {fmtDate(p.planned_date, {
                         day: "2-digit",
                         month: "short",

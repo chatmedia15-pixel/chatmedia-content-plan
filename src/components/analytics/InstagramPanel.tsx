@@ -5,7 +5,6 @@ import {
   Heart,
   Eye,
   TrendingUp,
-  Trophy,
   Film,
   ExternalLink,
   RefreshCw,
@@ -13,6 +12,7 @@ import {
   Target,
   List,
   CheckCircle2,
+  BarChart3,
 } from "lucide-react";
 import { Card, Pill, BrandDot, KpiCard, Select } from "@/components/ui";
 import { SimpleBarChart } from "@/components/charts/SimpleBarChart";
@@ -51,6 +51,20 @@ interface IgBrand {
     views?: number;
     type?: "reel" | "post";
   }>;
+}
+
+interface PostWithBrand {
+  brandId: string;
+  brandName: string;
+  brandColor: string;
+  brandUsername: string;
+  url?: string;
+  caption?: string;
+  likes: number;
+  views: number;
+  type: "reel" | "post";
+  engagementRate: number; // likes + views / follower ratio proxy
+  likeViewRatio: number; // likes / views ratio
 }
 
 type IgTab = "overview" | "comparison" | "posts";
@@ -210,6 +224,32 @@ export function InstagramPanel() {
     return out;
   }, [validBrands, totals]);
 
+  // ── Kumpulkan semua post dari semua brand ────
+  const allPosts = useMemo<PostWithBrand[]>(() => {
+    const out: PostWithBrand[] = [];
+    validBrands.forEach((b) => {
+      b.recentPosts.forEach((p) => {
+        const likes = p.likes ?? 0;
+        const views = p.views ?? 0;
+        out.push({
+          brandId: b.id,
+          brandName: b.name,
+          brandColor: b.color,
+          brandUsername: b.username,
+          url: p.url,
+          caption: p.caption,
+          likes,
+          views,
+          type: p.type === "reel" ? "reel" : "post",
+          engagementRate:
+            b.followers > 0 ? ((likes + views) / b.followers) * 100 : 0,
+          likeViewRatio: views > 0 ? (likes / views) * 100 : 0,
+        });
+      });
+    });
+    return out;
+  }, [validBrands]);
+
   // ── Charts data ──────────────────────────────
   const chartFollowers = validBrands.map((b) => ({
     name: b.shortName,
@@ -236,7 +276,7 @@ export function InstagramPanel() {
   // ── Sync handler ─────────────────────────────
   async function handleSync() {
     try {
-      await syncMut.mutateAsync(BRANDS.map((b) => b.id));
+      await syncMut.mutateAsync(undefined);
       push("Berhasil sync Instagram");
     } catch (err) {
       push(`Sync gagal: ${err instanceof Error ? err.message : "unknown"}`);
@@ -389,7 +429,7 @@ export function InstagramPanel() {
           chartFollowers={chartFollowers}
           chartAvgLikes={chartAvgLikes}
           chartViewsPie={chartViewsPie}
-          brands={validBrands}
+          allPosts={allPosts}
         />
       )}
 
@@ -415,7 +455,7 @@ function OverviewTab({
   chartFollowers,
   chartAvgLikes,
   chartViewsPie,
-  brands,
+  allPosts,
 }: {
   totals: {
     followers: number;
@@ -431,7 +471,7 @@ function OverviewTab({
   chartFollowers: { name: string; value: number }[];
   chartAvgLikes: { name: string; value: number }[];
   chartViewsPie: { name: string; value: number }[];
-  brands: IgBrand[];
+  allPosts: PostWithBrand[];
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -562,7 +602,7 @@ function OverviewTab({
         </Card>
       </div>
 
-      {/* Grafik baris 2 */}
+      {/* Grafik baris 2 — Distribusi Views + ANALITIK PER POST */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="p-4 sm:p-5">
           <div className="mb-3 flex items-center gap-2">
@@ -582,59 +622,171 @@ function OverviewTab({
           )}
         </Card>
 
-        <Card className="p-4 sm:p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-warn" />
-              <span className="text-sm font-semibold">
-                Top 3 Engagement Rate
-              </span>
-            </div>
-            <Pill tone="warn">Benchmark 1.5%</Pill>
-          </div>
-          {brands.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {[...brands]
-                .sort((a, b) => b.engagementRate - a.engagementRate)
-                .slice(0, 3)
-                .map((b, idx) => {
-                  const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
-                  const pct = Math.min((b.engagementRate / 5) * 100, 100);
-                  return (
-                    <div key={b.id} className="flex items-center gap-3">
-                      <span className="shrink-0 text-lg">{medal}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1.5 flex items-center justify-between">
-                          <span className="truncate text-xs font-medium">
-                            {b.name}
-                          </span>
-                          <span
-                            className="shrink-0 text-xs font-bold"
-                            style={{ color: b.color }}
-                          >
-                            {b.engagementRate.toFixed(2)}%
-                          </span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-line">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${pct}%`,
-                              backgroundColor: b.color,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          ) : (
-            <div className="text-xs text-sub">Belum ada data</div>
-          )}
-        </Card>
+        {/* ── ANALITIK PER POST (ganti Top 3 Engagement) ── */}
+        <PostAnalyticsTab posts={allPosts} />
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Analitik Per Post — Ganti Top 3 Engagement
+// ─────────────────────────────────────────────────────────
+function PostAnalyticsTab({ posts }: { posts: PostWithBrand[] }) {
+  const [sortKey, setSortKey] = useState<"views" | "likes" | "engagementRate">(
+    "views",
+  );
+
+  // Sort + ambil top 10
+  const topPosts = useMemo(() => {
+    return [...posts]
+      .sort((a, b) => {
+        if (sortKey === "views") return b.views - a.views;
+        if (sortKey === "likes") return b.likes - a.likes;
+        return b.engagementRate - a.engagementRate;
+      })
+      .slice(0, 10);
+  }, [posts, sortKey]);
+
+  const maxValue =
+    topPosts.length > 0 ? Math.max(...topPosts.map((p) => p[sortKey])) : 1;
+
+  if (posts.length === 0) {
+    return (
+      <Card className="p-4 sm:p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">Analitik Per Post</span>
+        </div>
+        <div className="flex h-60 items-center justify-center text-xs text-sub">
+          Belum ada data post
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-4 sm:p-5">
+      {/* Header tetap */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4 text-primary" />
+          <span className="text-sm font-semibold">Analitik Per Post</span>
+          <Pill tone="neutral">Top 10</Pill>
+        </div>
+        <div className="flex gap-1">
+          {[
+            { id: "views" as const, label: "Views" },
+            { id: "likes" as const, label: "Likes" },
+            { id: "engagementRate" as const, label: "ER" },
+          ].map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSortKey(s.id)}
+              className="rounded-md px-2 py-1 text-[10px] font-medium transition"
+              style={{
+                backgroundColor: sortKey === s.id ? "#EEF2FF" : "transparent",
+                color: sortKey === s.id ? "#2F5CFF" : "#5B6478",
+                border: `1px solid ${sortKey === s.id ? "#2F5CFF" : "#E7E9F0"}`,
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── CONTAINER SCROLL — tinggi fix 400px ── */}
+      <div
+        className="flex flex-col gap-2 overflow-y-auto pr-1"
+        style={{ maxHeight: 400 }}
+      >
+        {topPosts.map((post, idx) => {
+          const value = post[sortKey];
+          const pct = maxValue > 0 ? (value / maxValue) * 100 : 0;
+          const isTop3 = idx < 3;
+          const medal =
+            idx === 0
+              ? "🥇"
+              : idx === 1
+                ? "🥈"
+                : idx === 2
+                  ? "🥉"
+                  : `#${idx + 1}`;
+
+          return (
+            <a
+              key={idx}
+              href={post.url ?? "#"}
+              target="_blank"
+              rel="noreferrer"
+              className="group flex flex-col gap-1.5 rounded-xl border border-line p-2.5 transition hover:bg-slate-50"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                  style={{
+                    backgroundColor: isTop3
+                      ? `${post.brandColor}20`
+                      : "#F1F3F9",
+                    color: isTop3 ? post.brandColor : "#5B6478",
+                  }}
+                >
+                  {medal}
+                </span>
+                <BrandDot id={post.brandId} size={6} />
+                <span className="truncate text-[10px] font-medium text-sub">
+                  {post.brandName}
+                </span>
+                <span
+                  className="ml-auto text-[10px] font-semibold"
+                  style={{ color: post.brandColor }}
+                >
+                  {sortKey === "engagementRate"
+                    ? `${value.toFixed(2)}%`
+                    : fmtNum(value)}
+                </span>
+              </div>
+
+              <div className="line-clamp-1 pl-8 text-[11px] text-ink">
+                {post.caption || "(tanpa caption)"}
+              </div>
+
+              <div className="flex items-center gap-3 pl-8 text-[10px] text-sub">
+                <span className="inline-flex items-center gap-0.5">
+                  <Heart className="h-2.5 w-2.5" />
+                  {fmtNum(post.likes)}
+                </span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Eye className="h-2.5 w-2.5" />
+                  {fmtNum(post.views)}
+                </span>
+                <span
+                  className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium"
+                  style={{
+                    backgroundColor:
+                      post.likeViewRatio >= 5 ? "#EAFBF1" : "#FEF6E7",
+                    color: post.likeViewRatio >= 5 ? "#16A34A" : "#D97706",
+                  }}
+                >
+                  L/V {post.likeViewRatio.toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="h-1 overflow-hidden rounded-full bg-line">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${pct}%`,
+                    backgroundColor: post.brandColor,
+                  }}
+                />
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
 

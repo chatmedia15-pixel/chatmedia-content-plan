@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, X, Plug } from "lucide-react";
+import { X, Plug } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/constants";
 
 interface SidebarProps {
@@ -24,23 +24,19 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header brand — lebih compact */}
-      <div className="flex items-center justify-between px-3.5 py-3">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: "linear-gradient(135deg, #2F5CFF, #7C3AED)" }}
-          >
-            <Sparkles className="h-4 w-4 text-white" />
-          </div>
+      {/* ── Header brand — LEBIH BESAR ── */}
+      <div className="flex items-center justify-between px-3.5 py-4">
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo-chat.jpeg"
+            alt="Chatmedia Logo"
+            className="h-10 w-10 shrink-0 rounded-lg object-contain"
+          />
           <div className="min-w-0">
-            <div className="truncate text-sm font-bold leading-tight text-white">
+            <div className="truncate text-base font-bold leading-tight text-white">
               Content Plan
             </div>
-            <div
-              className="text-[10px] font-medium leading-tight"
-              style={{ color: "#8892A6" }}
-            >
+            <div className="truncate text-xs font-medium leading-tight text-white/70">
               Chatmedia
             </div>
           </div>
@@ -50,20 +46,23 @@ function SidebarContent({
             onClick={onClose}
             className="shrink-0 rounded-lg p-1.5 transition hover:bg-white/10"
           >
-            <X className="h-4 w-4" style={{ color: "#A6AFC3" }} />
+            <X className="h-5 w-5 text-white/80" />
           </button>
         )}
       </div>
 
+      {/* Garis pemisah di bawah header */}
+      <div
+        className="mx-3"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.10)" }}
+      />
+
       {/* Nav */}
-      <nav className="flex-1 px-3 pb-2">
+      <nav className="flex-1 px-3 pb-2 pt-3">
         {NAV_GROUPS.map((group, groupIdx) => (
-          <div key={group.label} className={groupIdx > 0 ? "mt-3" : "mt-0.5"}>
+          <div key={group.label} className={groupIdx > 0 ? "mt-3" : "mt-0"}>
             {/* Group label */}
-            <div
-              className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.08em]"
-              style={{ color: "#64748B" }}
-            >
+            <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">
               {group.label}
             </div>
 
@@ -80,32 +79,25 @@ function SidebarContent({
                     onClick={() => onNavigate(item.path)}
                     onMouseEnter={() => setHoveredId(item.id)}
                     onMouseLeave={() => setHoveredId(null)}
-                    className="group flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-all duration-150"
+                    className="group flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-white transition-all duration-150"
                     style={{
                       backgroundColor: active
-                        ? "rgba(47,92,255,0.22)"
+                        ? "rgba(255,255,255,0.14)"
                         : hovered
                           ? "rgba(255,255,255,0.06)"
                           : "transparent",
-                      color: active ? "#fff" : hovered ? "#E2E8F0" : "#A6AFC3",
+                      opacity: active ? 1 : hovered ? 1 : 0.85,
                     }}
                   >
                     <Icon
-                      className="h-4 w-4 shrink-0 transition-colors"
+                      className="h-4 w-4 shrink-0 text-white transition-colors"
                       style={{
-                        color: active
-                          ? "#93B4FF"
-                          : hovered
-                            ? "#B0BACE"
-                            : "#7A8399",
+                        opacity: active ? 1 : 0.85,
                       }}
                     />
                     <span className="truncate flex-1">{item.label}</span>
                     {active && (
-                      <span
-                        className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: "#5B8AFF" }}
-                      />
+                      <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
                     )}
                   </button>
                 );
@@ -115,14 +107,14 @@ function SidebarContent({
         ))}
       </nav>
 
-      {/* Footer AI status — compact */}
+      {/* Footer AI status */}
       <div
         className="border-t px-3 py-2.5"
-        style={{ borderColor: "rgba(255,255,255,0.08)" }}
+        style={{ borderColor: "rgba(255,255,255,0.10)" }}
       >
         <div
           className="rounded-lg px-3 py-2 transition"
-          style={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+          style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
         >
           <div className="flex items-center gap-2 text-xs font-medium text-white">
             <Plug className="h-3.5 w-3.5" />
@@ -132,10 +124,7 @@ function SidebarContent({
               style={{ backgroundColor: "#16A34A" }}
             />
           </div>
-          <div
-            className="mt-0.5 text-[10px] leading-tight"
-            style={{ color: "#8892A6" }}
-          >
+          <div className="mt-0.5 text-[10px] leading-tight text-white/70">
             Terhubung
           </div>
         </div>
@@ -154,10 +143,10 @@ export function Sidebar({
     <>
       {/* Desktop */}
       <aside
-        className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col md:flex"
+        className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r md:flex"
         style={{
-          backgroundColor: "#0B1220",
-          borderColor: "rgba(47,92,255,0.15)",
+          backgroundColor: "#1d1b27",
+          borderColor: "rgba(124,58,237,0.15)",
         }}
       >
         <SidebarContent currentPath={currentPath} onNavigate={onNavigate} />
@@ -171,8 +160,11 @@ export function Sidebar({
             onClick={onCloseMobile}
           />
           <aside
-            className="relative flex h-full w-72 flex-col shadow-2xl"
-            style={{ backgroundColor: "#0B1220" }}
+            className="relative flex h-full w-72 flex-col border-r shadow-2xl"
+            style={{
+              backgroundColor: "#1d1b27",
+              borderColor: "rgba(124,58,237,0.15)",
+            }}
           >
             <SidebarContent
               currentPath={currentPath}

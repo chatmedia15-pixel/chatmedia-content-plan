@@ -11,7 +11,7 @@ export function useInstagramSnapshots() {
 export function useSyncInstagram() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (brands: string[]) => instagramService.sync(brands),
+    mutationFn: () => instagramService.sync(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["instagram"] });
     },

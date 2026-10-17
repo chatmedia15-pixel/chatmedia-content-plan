@@ -215,7 +215,7 @@ export function PlanningPage() {
                     {brand?.name ?? p.brand_id}
                   </span>
                   {p.planned_date && (
-                    <Pill tone="warn" className="!text-[10px]">
+                    <Pill tone="warn" className="!text-sm !font-semibold">
                       {fmtDate(p.planned_date, {
                         day: "2-digit",
                         month: "short",

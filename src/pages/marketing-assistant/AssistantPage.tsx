@@ -1,9 +1,16 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, Loader2, Trash2 } from "lucide-react";
+import { Send, Sparkles, Loader2, Trash2, MessageSquare } from "lucide-react";
 import { Card, SectionHeader, AiBadge, Pill } from "@/components/ui";
 import { useGenerateCaption } from "@/hooks/useAi";
 import { useToast } from "@/hooks/useToast";
 import { BRANDS } from "@/lib/constants";
+
+// ─────────────────────────────────────────────────────────
+// Storage
+// ─────────────────────────────────────────────────────────
+const STORAGE_KEY = "chatmedia:assistant-messages";
+const BRAND_KEY = "chatmedia:assistant-brand";
+const MAX_MESSAGES = 50;
 
 interface Message {
   role: "user" | "ai";
@@ -11,6 +18,61 @@ interface Message {
   time: number;
 }
 
+const WELCOME: Message = {
+  role: "ai",
+  text: `Halo! Saya asisten marketing untuk brand ChatBarber, Chat Shoe Treatment, Chatbox, dan Chttn Basic.
+
+Saya bisa membantu Anda:
+• Menulis caption
+• Membuat hook menarik
+• Memberi ide konten
+• Menyusun strategi
+
+Apa yang bisa saya bantu?`,
+  time: Date.now(),
+};
+
+function loadMessages(): Message[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [WELCOME];
+    const parsed = JSON.parse(raw) as Message[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return [WELCOME];
+    return parsed;
+  } catch {
+    return [WELCOME];
+  }
+}
+
+function saveMessages(msgs: Message[]) {
+  try {
+    // Batasi history
+    const trimmed = msgs.slice(-MAX_MESSAGES);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadBrand(): string {
+  try {
+    return localStorage.getItem(BRAND_KEY) ?? BRANDS[0].id;
+  } catch {
+    return BRANDS[0].id;
+  }
+}
+
+function saveBrand(id: string) {
+  try {
+    localStorage.setItem(BRAND_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Komponen
+// ─────────────────────────────────────────────────────────
 const SUGGESTIONS = [
   "Buat caption promosi untuk haircut baru",
   "Ide konten TikTok untuk treatment sepatu",
@@ -21,19 +83,13 @@ const SUGGESTIONS = [
 
 export function AssistantPage() {
   const { push } = useToast();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "ai",
-      text: "Halo! Saya asisten marketing untuk brand ChatBarber, Chat Shoe Treatment, Chatbox, dan Chttn Basic.\n\nSaya bisa membantu Anda:\n• Menulis caption\n• Membuat hook menarik\n• Memberi ide konten\n• Menyusun strategi\n\nApa yang bisa saya bantu?",
-      time: Date.now(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => loadMessages());
   const [input, setInput] = useState("");
-  const [brand, setBrand] = useState(BRANDS[0].id);
+  const [brand, setBrand] = useState<string>(() => loadBrand());
   const scrollRef = useRef<HTMLDivElement>(null);
   const genCaption = useGenerateCaption();
 
-  // Auto-scroll ke bawah
+  // ── Auto-scroll ke bawah ──────────────────────
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
@@ -41,12 +97,27 @@ export function AssistantPage() {
     });
   }, [messages]);
 
+  // ── Persist messages ──────────────────────────
+  useEffect(() => {
+    saveMessages(messages);
+  }, [messages]);
+
+  // ── Persist brand ─────────────────────────────
+  useEffect(() => {
+    saveBrand(brand);
+  }, [brand]);
+
+  // ── Kirim pesan ───────────────────────────────
   async function handleSend(text?: string) {
     const q = (text ?? input).trim();
     if (!q || genCaption.isPending) return;
 
-    // Tambah pesan user
-    setMessages((m) => [...m, { role: "user", text: q, time: Date.now() }]);
+    const userMsg: Message = {
+      role: "user",
+      text: q,
+      time: Date.now(),
+    };
+    setMessages((m) => [...m, userMsg]);
     setInput("");
 
     try {
@@ -58,18 +129,33 @@ export function AssistantPage() {
         pillar: brandObj.pillars[0],
       });
 
-      setMessages((m) => [...m, { role: "ai", text: reply, time: Date.now() }]);
+      const aiMsg: Message = {
+        role: "ai",
+        text: reply,
+        time: Date.now(),
+      };
+      setMessages((m) => [...m, aiMsg]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Gagal";
       setMessages((m) => [
         ...m,
-        { role: "ai", text: `⚠️ Error: ${msg}`, time: Date.now() },
+        {
+          role: "ai",
+          text: `⚠️ Error: ${msg}`,
+          time: Date.now(),
+        },
       ]);
     }
   }
 
+  // ── Clear chat ────────────────────────────────
   function handleClear() {
+    if (messages.length <= 1) {
+      push("Belum ada percakapan");
+      return;
+    }
     if (!confirm("Hapus semua percakapan?")) return;
+
     setMessages([
       {
         role: "ai",
@@ -79,6 +165,17 @@ export function AssistantPage() {
     ]);
     push("Percakapan dibersihkan");
   }
+
+  // ── Ganti brand ───────────────────────────────
+  function handleBrandChange(id: string) {
+    setBrand(id);
+    const brandObj = BRANDS.find((b) => b.id === id);
+    if (brandObj) {
+      push(`Konteks brand: ${brandObj.name}`);
+    }
+  }
+
+  const messageCount = messages.filter((m) => m.role === "user").length;
 
   return (
     <div className="flex animate-in flex-col gap-5 sm:gap-6">
@@ -96,10 +193,17 @@ export function AssistantPage() {
             <AiBadge />
           </div>
           <div className="flex items-center gap-2">
+            {messageCount > 0 && (
+              <Pill tone="neutral">
+                <MessageSquare className="h-3 w-3" />
+                {messageCount} pesan
+              </Pill>
+            )}
             <Pill tone="blue">{BRANDS.find((b) => b.id === brand)?.name}</Pill>
             <button
               onClick={handleClear}
-              className="rounded-lg border border-line p-1.5 text-sub transition hover:bg-slate-50"
+              disabled={messages.length <= 1}
+              className="rounded-lg border border-line p-1.5 text-sub transition hover:bg-slate-50 disabled:opacity-40"
               title="Bersihkan percakapan"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -116,7 +220,7 @@ export function AssistantPage() {
             {BRANDS.map((b) => (
               <button
                 key={b.id}
-                onClick={() => setBrand(b.id)}
+                onClick={() => handleBrandChange(b.id)}
                 className="rounded-full px-2.5 py-0.5 text-[11px] font-medium transition"
                 style={{
                   backgroundColor: brand === b.id ? b.color : "transparent",
@@ -162,7 +266,7 @@ export function AssistantPage() {
           )}
         </div>
 
-        {/* Suggestion chips (hanya saat chat masih pendek) */}
+        {/* Suggestion chips */}
         {messages.length <= 2 && !genCaption.isPending && (
           <div className="border-t border-line px-4 py-2">
             <div className="mb-1.5 text-[10px] font-medium text-sub">

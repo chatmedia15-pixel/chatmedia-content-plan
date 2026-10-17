@@ -216,7 +216,7 @@ export function PublishedPage() {
 
                 {/* Tanggal */}
                 {date && (
-                  <div className="text-[11px] text-sub">
+                  <div className="text-sm font-medium text-sub">
                     Dipublikasi: {fmtDate(date)}
                   </div>
                 )}

@@ -6,10 +6,6 @@ export interface InstagramDataByBrand {
 }
 
 export const instagramService = {
-  /**
-   * Baca snapshot terbaru per brand dari Supabase.
-   * Return: { data: { [brandId]: snapshot }, syncedAt: timestamp }
-   */
   async getLatestSnapshots(): Promise<{
     data: InstagramDataByBrand | null;
     syncedAt: string | null;
@@ -29,21 +25,21 @@ export const instagramService = {
     return { data: byBrand, syncedAt: data[0].synced_at };
   },
 
-  /**
-   * Trigger sync via Edge Function (proxy ke GAS CreatorCrawl).
-   * Akan tersedia setelah Langkah 8.
-   */
-  async sync(brands: string[]): Promise<{
-    data: InstagramDataByBrand | null;
-    syncedAt: string | null;
+  async sync(): Promise<{
+    success: boolean;
+    syncedAt: string;
+    brands: number;
+    errors?: string[];
   }> {
     const { data, error } = await supabase.functions.invoke("sync-instagram", {
-      body: { brands },
+      body: {},
     });
-    if (error) throw error;
+
+    if (error) throw new Error(error.message ?? "Gagal sync Instagram");
     if (!data?.success) {
       throw new Error(data?.error ?? "Sync gagal");
     }
-    return { data: data.data, syncedAt: data.syncedAt };
+
+    return data;
   },
 };
