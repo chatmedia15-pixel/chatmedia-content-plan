@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Modal, Pill, BrandDot, PlatformIcon } from "@/components/ui";
-import { Link as LinkIcon, ExternalLink, X } from "lucide-react";
+import { Link as LinkIcon, ExternalLink, X, Copy, Check } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { BRANDS } from "@/lib/constants";
 import type { ContentItem } from "@/types/content";
@@ -10,9 +11,34 @@ interface ContentDetailModalProps {
 }
 
 export function ContentDetailModal({ item, onClose }: ContentDetailModalProps) {
+  const [copied, setCopied] = useState(false);
+  const [copiedConcept, setCopiedConcept] = useState(false);
+
   if (!item) return null;
 
   const brand = BRANDS.find((b) => b.id === item.brand_id);
+
+  async function handleCopyCaption() {
+    if (!item?.caption) return;
+    try {
+      await navigator.clipboard.writeText(item.caption);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      alert("Gagal menyalin caption");
+    }
+  }
+
+  async function handleCopyConcept() {
+    if (!item?.concept) return;
+    try {
+      await navigator.clipboard.writeText(item.concept);
+      setCopiedConcept(true);
+      setTimeout(() => setCopiedConcept(false), 2000);
+    } catch (err) {
+      alert("Gagal menyalin konsep");
+    }
+  }
 
   return (
     <Modal open onClose={onClose} title="Detail Konten" wide>
@@ -67,8 +93,75 @@ export function ContentDetailModal({ item, onClose }: ContentDetailModalProps) {
 
         {/* Sections */}
         {item.hook && <Block label="Hook" value={item.hook} italic />}
-        {item.concept && <Block label="Konsep" value={item.concept} />}
-        {item.caption && <Block label="Caption" value={item.caption} />}
+
+        {/* 🎯 Konsep dengan tombol salin */}
+        {item.concept && (
+          <div className="rounded-xl border border-line p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-sub">
+                Konsep
+              </div>
+              <button
+                onClick={handleCopyConcept}
+                className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition hover:bg-slate-50"
+                style={{
+                  borderColor: copiedConcept ? "#16A34A" : "#E7E9F0",
+                  color: copiedConcept ? "#16A34A" : "#5B6478",
+                }}
+              >
+                {copiedConcept ? (
+                  <>
+                    <Check className="h-3 w-3" />
+                    Tersalin!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    Salin
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="whitespace-pre-wrap break-words text-sm text-ink">
+              {item.concept}
+            </div>
+          </div>
+        )}
+
+        {/* 🎯 Caption dengan tombol salin */}
+        {item.caption && (
+          <div className="rounded-xl border border-line p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[10px] font-medium uppercase tracking-wide text-sub">
+                Caption
+              </div>
+              <button
+                onClick={handleCopyCaption}
+                className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition hover:bg-slate-50"
+                style={{
+                  borderColor: copied ? "#16A34A" : "#E7E9F0",
+                  color: copied ? "#16A34A" : "#5B6478",
+                }}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3 w-3" />
+                    Tersalin!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" />
+                    Salin
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="whitespace-pre-wrap break-words text-sm text-ink">
+              {item.caption}
+            </div>
+          </div>
+        )}
+
         {item.cta && <Block label="CTA" value={item.cta} />}
 
         {item.link_ref && (
