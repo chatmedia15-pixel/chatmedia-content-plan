@@ -43,22 +43,25 @@ export function ContentCheckPage() {
 
     const brand = BRANDS.find((b) => b.id === form.brandId)!;
 
-    const prompt = `Nilai kualitas konten berikut dan berikan skor + saran.
+    const prompt = `Nilai kualitas konten berikut.
 
-Brand: ${brand.name} (${brand.category})
+Brand: ${brand.name}
 Judul: ${form.title}
-Hook: ${form.hook || "(kosong)"}
-Caption: ${form.caption || "(kosong)"}
-CTA: ${form.cta || "(kosong)"}
+Hook: ${form.hook || "-"}
+Caption: ${form.caption || "-"}
+CTA: ${form.cta || "-"}
 
-Balas HANYA JSON dengan format:
-{
-  "score": <angka 0-100>,
-  "good": ["poin bagus 1", "poin bagus 2"],
-  "improve": ["saran perbaikan 1", "saran perbaikan 2"]
-}
+Balas HANYA dengan format persis seperti ini (tanpa penjelasan tambahan):
 
-Nilai berdasarkan: hook menarik, caption jelas, CTA kuat, sesuai audiens brand.`;
+SKOR: [angka 0-100]
+KELEBIHAN:
+- [poin 1]
+- [poin 2]
+SARAN:
+- [poin 1]
+- [poin 2]
+
+Bahasa Indonesia.`;
 
     try {
       setResult(null);
@@ -66,33 +69,68 @@ Nilai berdasarkan: hook menarik, caption jelas, CTA kuat, sesuai audiens brand.`
         brand: brand.name,
         title: prompt,
         platform: "Instagram",
+        mode: "scoring",
       });
 
-      try {
-        const clean = reply
-          .replace(/```json/gi, "")
-          .replace(/```/g, "")
-          .trim();
-        const start = clean.indexOf("{");
-        const end = clean.lastIndexOf("}");
-        const jsonStr =
-          start >= 0 && end > start ? clean.substring(start, end + 1) : clean;
-        const parsed = JSON.parse(jsonStr);
+      // 🎯 Parser teks manual (karena AI tidak selalu kasih JSON valid)
+      let score = 50;
+      const good: string[] = [];
+      const improve: string[] = [];
 
-        setResult({
-          score: Number(parsed.score) || 0,
-          good: Array.isArray(parsed.good) ? parsed.good : [],
-          improve: Array.isArray(parsed.improve) ? parsed.improve : [],
-          raw: reply,
-        });
-      } catch {
-        setResult({
-          score: 50,
-          good: ["Konten sudah cukup baik"],
-          improve: [reply.substring(0, 300)],
-          raw: reply,
-        });
+      const lines = reply
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      let currentSection = "";
+
+      for (const line of lines) {
+        const upper = line.toUpperCase();
+
+        // Deteksi skor
+        const scoreMatch = line.match(/SKOR\s*:\s*(\d+)/i);
+        if (scoreMatch) {
+          score = Math.min(100, Math.max(0, parseInt(scoreMatch[1], 10)));
+          continue;
+        }
+
+        // Deteksi section
+        if (upper.includes("KELEBIHAN") || upper.includes("YANG BAGUS")) {
+          currentSection = "good";
+          continue;
+        }
+        if (
+          upper.includes("SARAN") ||
+          upper.includes("PERLU DIPERBAIKI") ||
+          upper.includes("PERBAIKAN")
+        ) {
+          currentSection = "improve";
+          continue;
+        }
+
+        // Kalau bukan header section, masukkan ke list berdasarkan section aktif
+        if (
+          line.startsWith("-") ||
+          line.startsWith("•") ||
+          line.startsWith("*")
+        ) {
+          const cleanLine = line.replace(/^[-•*]\s*/, "").trim();
+          if (currentSection === "good") good.push(cleanLine);
+          else if (currentSection === "improve") improve.push(cleanLine);
+        } else if (currentSection === "good" && line.length > 5) {
+          // Baris tanpa bullet tapi di section good
+          good.push(line);
+        } else if (currentSection === "improve" && line.length > 5) {
+          improve.push(line);
+        }
       }
+
+      setResult({
+        score,
+        good: good.length > 0 ? good : ["Konten sudah dianalisis"],
+        improve: improve.length > 0 ? improve : ["Tidak ada saran spesifik"],
+        raw: reply,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Gagal cek konten";
       push(`Gagal: ${msg}`);

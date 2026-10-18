@@ -22,17 +22,17 @@ export function ExperimentsPage() {
 
     const brand = BRANDS.find((b) => b.id === brandId)!;
 
-    const prompt = `Bandingkan 2 hook konten untuk brand "${brand.name}" (${brand.category}).
+    const prompt = `Bandingkan 2 hook konten untuk brand "${brand.name}".
 
 Hook A: "${hookA}"
 Hook B: "${hookB}"
 
-Analisis singkat (maks 200 kata) dengan format:
+Berikan analisis:
 1. Kelebihan Hook A
 2. Kelebihan Hook B
 3. Rekomendasi mana yang lebih baik dan alasannya
 
-Bahasa Indonesia.`;
+Bahasa Indonesia. Jangan tambahkan hashtag.`;
 
     try {
       setResult(null);
@@ -40,11 +40,20 @@ Bahasa Indonesia.`;
         brand: brand.name,
         title: prompt,
         platform: "Instagram",
+        mode: "ab_test", // 🎯 Pastikan mode ab_test
       });
-      setResult(reply);
+
+      // 🎯 Tampilkan langsung sebagai teks (tanpa parsing JSON)
+      if (!reply || reply.trim() === "") {
+        push("AI tidak mengembalikan hasil");
+        return;
+      }
+
+      setResult(reply.trim());
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Gagal analisis";
       push(`Gagal: ${msg}`);
+      console.error("[Lab Eksperimen]", err);
     }
   }
 

@@ -26,3 +26,10 @@ export function useAnalyzeInsights() {
       aiService.analyzeInsights(input),
   });
 }
+
+export function useChatAssistant() {
+  return useMutation({
+    mutationFn: (input: { brand: string; message: string }) =>
+      aiService.chatAssistant(input),
+  });
+}

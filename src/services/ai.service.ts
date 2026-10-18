@@ -29,6 +29,9 @@ export interface GenerateCaptionInput {
   hook?: string;
   platform: string;
   pillar?: string;
+  mode?: "caption" | "scoring" | "ab_test" | "concept";
+  format?: string;
+  objective?: string;
 }
 
 export interface AnalyzeInsightsInput {
@@ -69,7 +72,10 @@ export const aiService = {
     if (!data?.success)
       throw new Error(data?.error ?? "AI gagal generate caption");
 
-    return data.data.caption as string;
+    // 🎯 Mode caption → data.caption, mode lain → data.text
+    const result = data.data.caption ?? data.data.text;
+    if (!result) throw new Error("Response AI kosong");
+    return result;
   },
 
   /**
@@ -85,5 +91,16 @@ export const aiService = {
     if (!data?.success) throw new Error(data?.error ?? "AI gagal analisis");
 
     return data.data.text as string;
+  },
+  async chatAssistant(input: {
+    brand: string;
+    message: string;
+  }): Promise<string> {
+    const { data, error } = await supabase.functions.invoke("chat-assistant", {
+      body: input,
+    });
+    if (error) throw new Error(error.message ?? "Gagal chat");
+    if (!data?.success) throw new Error(data?.error ?? "Chat gagal");
+    return data.data.reply;
   },
 };

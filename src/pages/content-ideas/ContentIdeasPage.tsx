@@ -5,6 +5,7 @@ import {
   Eye,
   Trash2,
   MoveRight,
+  Wand2,
   Search,
   Sparkles,
   Loader2,
@@ -911,7 +912,10 @@ function ManualIdeaModal({
   const [cta, setCta] = useState("");
   const [aiError, setAiError] = useState<string | null>(null);
 
-  // Import useGenerateCaption di atas
+  // 🎯 State untuk generate konsep & caption
+  const [conceptLoading, setConceptLoading] = useState(false);
+  const [captionLoading, setCaptionLoading] = useState(false);
+
   const genCaption = useGenerateCaption();
 
   function handleBrandChange(id: string) {
@@ -926,12 +930,42 @@ function ManualIdeaModal({
     setFormat(FORMATS[pl][0]);
   }
 
+  // 🎯 Generate Konsep AI
+  async function handleGenerateConcept() {
+    if (!title.trim()) {
+      setAiError("Isi judul dulu");
+      return;
+    }
+    setAiError(null);
+    setConceptLoading(true);
+    try {
+      const result = await genCaption.mutateAsync({
+        brand: brand.name,
+        title,
+        hook: hook || undefined,
+        platform,
+        pillar,
+        mode: "concept",
+        format,
+        objective,
+      } as any);
+      setConcept(result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Gagal generate";
+      setAiError(msg);
+    } finally {
+      setConceptLoading(false);
+    }
+  }
+
+  // 🎯 Generate Caption AI (sudah ada sebelumnya)
   async function handleGenerateCaption() {
     if (!title.trim()) {
       setAiError("Isi judul dulu");
       return;
     }
     setAiError(null);
+    setCaptionLoading(true);
     try {
       const result = await genCaption.mutateAsync({
         brand: brand.name,
@@ -944,6 +978,8 @@ function ManualIdeaModal({
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Gagal generate";
       setAiError(msg);
+    } finally {
+      setCaptionLoading(false);
     }
   }
 
@@ -1030,35 +1066,61 @@ function ManualIdeaModal({
             className={inputCls}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-sub">
-          <span className="font-medium">Konsep</span>
-          <textarea
-            rows={3}
-            value={concept}
-            onChange={(e) => setConcept(e.target.value)}
-            className={inputCls}
-          />
-        </label>
 
-        {/* Caption dengan tombol AI */}
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-sub">Caption</span>
+        {/* 🎯 Konsep dengan Generate AI */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-medium text-sub">Konsep</span>
             <button
               type="button"
-              onClick={handleGenerateCaption}
-              disabled={genCaption.isPending || !title.trim()}
+              onClick={handleGenerateConcept}
+              disabled={conceptLoading || !title.trim()}
               className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition hover:bg-ai-bg disabled:opacity-60"
               style={{ borderColor: "#C7D2FE", color: "#7C3AED" }}
             >
-              {genCaption.isPending ? (
+              {conceptLoading ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin-slow" />
                   Generating…
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-3 w-3" />
+                  <Wand2 className="h-3 w-3" />
+                  Generate AI
+                </>
+              )}
+            </button>
+          </div>
+          <textarea
+            rows={3}
+            value={concept}
+            onChange={(e) => setConcept(e.target.value)}
+            placeholder="Konsep/isi konten (2-3 kalimat) — atau klik 'Generate AI' di atas"
+            className={inputCls}
+            style={conceptLoading ? { opacity: 0.6 } : undefined}
+            disabled={conceptLoading}
+          />
+        </div>
+
+        {/* Caption dengan Generate AI */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-medium text-sub">Caption</span>
+            <button
+              type="button"
+              onClick={handleGenerateCaption}
+              disabled={captionLoading || !title.trim()}
+              className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition hover:bg-ai-bg disabled:opacity-60"
+              style={{ borderColor: "#C7D2FE", color: "#7C3AED" }}
+            >
+              {captionLoading ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin-slow" />
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-3 w-3" />
                   Generate AI
                 </>
               )}
@@ -1068,8 +1130,10 @@ function ManualIdeaModal({
             rows={4}
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
-            placeholder="Caption konten..."
+            placeholder="Caption konten... (atau klik 'Generate AI')"
             className={inputCls}
+            style={captionLoading ? { opacity: 0.6 } : undefined}
+            disabled={captionLoading}
           />
           {aiError && (
             <div className="rounded-lg bg-danger-bg px-2 py-1 text-[10px] text-danger">
@@ -1094,7 +1158,7 @@ function ManualIdeaModal({
             disabled={!title.trim()}
             className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-medium text-white disabled:opacity-60"
           >
-            Tambah ke Draft
+            Simpan
           </button>
           <button
             onClick={onClose}

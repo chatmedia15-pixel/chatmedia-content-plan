@@ -67,6 +67,7 @@ export function ContentDetailModal({ item, onClose }: ContentDetailModalProps) {
 
         {/* Sections */}
         {item.hook && <Block label="Hook" value={item.hook} italic />}
+        {item.concept && <Block label="Konsep" value={item.concept} />}
         {item.caption && <Block label="Caption" value={item.caption} />}
         {item.cta && <Block label="CTA" value={item.cta} />}
 

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, Loader2, Trash2, MessageSquare } from "lucide-react";
 import { Card, SectionHeader, AiBadge, Pill } from "@/components/ui";
-import { useGenerateCaption } from "@/hooks/useAi";
+import { useChatAssistant } from "@/hooks/useAi";
 import { useToast } from "@/hooks/useToast";
 import { BRANDS } from "@/lib/constants";
 
@@ -87,7 +87,7 @@ export function AssistantPage() {
   const [input, setInput] = useState("");
   const [brand, setBrand] = useState<string>(() => loadBrand());
   const scrollRef = useRef<HTMLDivElement>(null);
-  const genCaption = useGenerateCaption();
+  const chatAssistant = useChatAssistant();
 
   // ── Auto-scroll ke bawah ──────────────────────
   useEffect(() => {
@@ -110,7 +110,7 @@ export function AssistantPage() {
   // ── Kirim pesan ───────────────────────────────
   async function handleSend(text?: string) {
     const q = (text ?? input).trim();
-    if (!q || genCaption.isPending) return;
+    if (!q || chatAssistant.isPending) return;
 
     const userMsg: Message = {
       role: "user",
@@ -122,11 +122,9 @@ export function AssistantPage() {
 
     try {
       const brandObj = BRANDS.find((b) => b.id === brand)!;
-      const reply = await genCaption.mutateAsync({
+      const reply = await chatAssistant.mutateAsync({
         brand: brandObj.name,
-        title: q,
-        platform: "Instagram",
-        pillar: brandObj.pillars[0],
+        message: q,
       });
 
       const aiMsg: Message = {
@@ -256,7 +254,7 @@ export function AssistantPage() {
             </div>
           ))}
 
-          {genCaption.isPending && (
+          {chatAssistant.isPending && (
             <div className="flex justify-start">
               <div className="flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2.5 text-sm text-sub">
                 <Loader2 className="h-3.5 w-3.5 animate-spin-slow text-ai" />
@@ -267,7 +265,7 @@ export function AssistantPage() {
         </div>
 
         {/* Suggestion chips */}
-        {messages.length <= 2 && !genCaption.isPending && (
+        {messages.length <= 2 && !chatAssistant.isPending && (
           <div className="border-t border-line px-4 py-2">
             <div className="mb-1.5 text-[10px] font-medium text-sub">
               Contoh pertanyaan:
@@ -292,21 +290,25 @@ export function AssistantPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !genCaption.isPending) {
+              if (
+                e.key === "Enter" &&
+                !e.shiftKey &&
+                !chatAssistant.isPending
+              ) {
                 e.preventDefault();
                 handleSend();
               }
             }}
             placeholder="Tulis pertanyaan atau permintaan…"
-            disabled={genCaption.isPending}
+            disabled={chatAssistant.isPending}
             className="flex-1 rounded-lg border border-line px-3.5 py-2.5 text-sm outline-none focus:border-primary disabled:opacity-60"
           />
           <button
             onClick={() => handleSend()}
-            disabled={!input.trim() || genCaption.isPending}
+            disabled={!input.trim() || chatAssistant.isPending}
             className="rounded-lg bg-primary p-2.5 text-white transition hover:opacity-90 disabled:opacity-60"
           >
-            {genCaption.isPending ? (
+            {chatAssistant.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin-slow" />
             ) : (
               <Send className="h-4 w-4" />

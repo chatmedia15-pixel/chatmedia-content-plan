@@ -22,6 +22,7 @@ export interface ContentFormValues {
   style: string;
   title: string;
   hook: string;
+  concept: string;
   caption: string;
   cta: string;
   link_ref: string;
@@ -49,6 +50,7 @@ function defaultValues(): ContentFormValues {
     style: CONTENT_STYLES[0],
     title: "",
     hook: "",
+    concept: "",
     caption: "",
     cta: "",
     link_ref: "",
@@ -72,6 +74,10 @@ export function ContentForm({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiHistory, setAiHistory] = useState<string[]>([]);
   const [regenCount, setRegenCount] = useState(0);
+
+  const [conceptHistory, setConceptHistory] = useState<string[]>([]);
+  const [conceptRegenCount, setConceptRegenCount] = useState(0);
+  const [conceptLoading, setConceptLoading] = useState(false);
 
   const genCaption = useGenerateCaption();
 
@@ -130,6 +136,59 @@ export function ContentForm({
       const msg = err instanceof Error ? err.message : "Gagal generate caption";
       setAiError(msg);
     }
+  }
+
+  // 🎯 Generate Konsep dengan AI
+  async function handleGenerateConcept() {
+    if (!form.title.trim()) {
+      setAiError("Isi judul dulu sebelum generate konsep");
+      return;
+    }
+
+    // Simpan konsep lama ke history (kalau ada)
+    if (form.concept.trim()) {
+      setConceptHistory((h) => [form.concept, ...h].slice(0, 5));
+    }
+
+    setAiError(null);
+    setConceptLoading(true);
+
+    try {
+      const concept = await genCaption.mutateAsync({
+        brand: brand.name,
+        title: form.title,
+        hook: form.hook || undefined,
+        platform: form.platform,
+        pillar: form.content_pillar || undefined,
+        mode: "concept",
+        format: form.format,
+        objective: form.objective,
+      } as any);
+      set("concept", concept);
+      setConceptRegenCount((c) => c + 1);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Gagal generate konsep";
+      setAiError(msg);
+    } finally {
+      setConceptLoading(false);
+    }
+  }
+
+  // 🎯 Undo konsep
+  function handleUndoConcept() {
+    if (conceptHistory.length === 0) return;
+    const [prev, ...rest] = conceptHistory;
+    set("concept", prev);
+    setConceptHistory(rest);
+    setConceptRegenCount((c) => Math.max(0, c - 1));
+  }
+
+  // 🎯 Reset konsep
+  function handleResetConcept() {
+    set("concept", initial?.concept ?? "");
+    setConceptHistory([]);
+    setConceptRegenCount(0);
+    setAiError(null);
   }
 
   function handleUndo() {
@@ -261,6 +320,86 @@ export function ContentForm({
         />
       </label>
 
+      {/* 🎯 Konsep dengan Generate AI + Regenerate */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-sub">Konsep</span>
+            {conceptRegenCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{ backgroundColor: "#F5F3FF", color: "#7C3AED" }}
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                AI · {conceptRegenCount}x
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {conceptHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={handleUndoConcept}
+                disabled={conceptLoading}
+                className="flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-sub transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                <Undo2 className="h-3 w-3" />
+                Undo
+              </button>
+            )}
+
+            {form.concept.trim() && (
+              <button
+                type="button"
+                onClick={handleResetConcept}
+                disabled={conceptLoading}
+                className="flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-sub transition hover:bg-slate-50 disabled:opacity-60"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={handleGenerateConcept}
+              disabled={conceptLoading || !form.title.trim()}
+              className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition hover:bg-ai-bg disabled:opacity-60"
+              style={{ borderColor: "#C7D2FE", color: "#7C3AED" }}
+            >
+              {conceptLoading ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin-slow" />
+                  Generating…
+                </>
+              ) : form.concept.trim() ? (
+                <>
+                  <RotateCcw className="h-3 w-3" />
+                  Regenerate
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-3 w-3" />
+                  Generate AI
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        <textarea
+          rows={3}
+          value={form.concept}
+          onChange={(e) => set("concept", e.target.value)}
+          placeholder="Konsep/isi konten (2-3 kalimat) — atau klik 'Generate AI' di atas"
+          className={inputCls}
+          style={
+            conceptLoading ? { opacity: 0.6, pointerEvents: "none" } : undefined
+          }
+          disabled={conceptLoading}
+        />
+      </div>
+
       {/* Caption dengan AI */}
       <div className="flex flex-col gap-1.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -362,7 +501,7 @@ export function ContentForm({
         />
       </label>
 
-      {/* 🆕 Jumlah Talent */}
+      {/* Jumlah Talent */}
       <label className="flex flex-col gap-1 text-xs text-sub">
         <span className="font-medium">Jumlah Talent</span>
         <input
