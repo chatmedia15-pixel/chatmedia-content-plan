@@ -37,9 +37,11 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-bg p-4">
       <div className="w-full max-w-md rounded-2xl border border-line bg-white p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-ai">
-            <Sparkles className="h-6 w-6 text-white" />
-          </div>
+          <img
+            src="/logo-chat.jpeg"
+            alt="Chatmedia Logo"
+            className="mx-auto mb-4 h-20 w-20 rounded-xl object-contain"
+          />
           <h1 className="text-xl font-semibold text-ink">Content Plan</h1>
           <p className="mt-1 text-sm text-sub">Chatmedia Workspace</p>
         </div>
