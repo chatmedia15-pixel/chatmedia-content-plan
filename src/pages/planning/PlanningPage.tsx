@@ -13,7 +13,6 @@ import {
   Pill,
   BrandDot,
   PlatformIcon,
-  Select,
   Modal,
   SectionHeader,
 } from "@/components/ui";
