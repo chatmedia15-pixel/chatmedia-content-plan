@@ -1,11 +1,20 @@
 import { useMemo, useState } from "react";
-import { Film, Eye, Edit, Trash2, Check, CalendarDays } from "lucide-react";
+import {
+  Eye,
+  Edit,
+  Trash2,
+  Check,
+  CalendarDays,
+  Clock,
+  AlertTriangle,
+  BarChart3,
+} from "lucide-react";
 import {
   Card,
   Pill,
   BrandDot,
   PlatformIcon,
-  Select,
+  KpiCard,
   Modal,
   SectionHeader,
 } from "@/components/ui";
@@ -15,7 +24,7 @@ import {
 } from "@/components/forms/ContentForm";
 import { ContentDetailModal } from "@/components/forms/ContentDetailModal";
 import { BRANDS, PRODUCTION_STATUSES, statusStyle } from "@/lib/constants";
-import { fmtDate, cx } from "@/lib/format";
+import { fmtDate, isToday, isOverdue } from "@/lib/format";
 import {
   useContentItems,
   useUpdateContent,
@@ -28,8 +37,7 @@ import type { ContentItem } from "@/types/content";
 export function CalendarPage() {
   const { push, toasts } = useToast();
 
-  const [filterBrand, setFilterBrand] = useState("all");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [activeBrand, setActiveBrand] = useState<string>(BRANDS[0].id);
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [detail, setDetail] = useState<ContentItem | null>(null);
   const [publishItem, setPublishItem] = useState<ContentItem | null>(null);
@@ -42,30 +50,36 @@ export function CalendarPage() {
 
   const items = query.data ?? [];
 
-  // ── Hitung count per status ─────────────────────
-  const statusCounts = useMemo(() => {
-    const c: Record<string, number> = {};
-    PRODUCTION_STATUSES.forEach((s) => (c[s] = 0));
-    items.forEach((p) => {
-      if (c[p.production_status] !== undefined) c[p.production_status]++;
-    });
-    return c;
-  }, [items]);
-
+  // ── Filter per Brand Aktif ──
   const filtered = useMemo(() => {
     return items
-      .filter((p) => {
-        if (filterBrand !== "all" && p.brand_id !== filterBrand) return false;
-        if (filterStatus !== "all" && p.production_status !== filterStatus)
-          return false;
-        return true;
-      })
+      .filter((p) => p.brand_id === activeBrand)
       .sort((a, b) => {
         const da = a.planned_date ?? "9999";
         const db = b.planned_date ?? "9999";
         return da.localeCompare(db);
       });
-  }, [items, filterBrand, filterStatus]);
+  }, [items, activeBrand]);
+
+  // ── 🎯 Statistik KESELURUHAN (semua brand) ──
+  const globalStats = useMemo(() => {
+    const total = items.length;
+    const today = items.filter((it) => isToday(it.planned_date)).length;
+    const overdue = items.filter(
+      (it) =>
+        isOverdue(it.planned_date) && it.production_status !== "Siap Publikasi",
+    ).length;
+    return { total, today, overdue };
+  }, [items]);
+
+  // ── Hitung jumlah konten per brand (untuk badge tab) ──
+  const brandCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    BRANDS.forEach((b) => {
+      counts[b.id] = items.filter((it) => it.brand_id === b.id).length;
+    });
+    return counts;
+  }, [items]);
 
   // ── Handlers ─────────────────────────────────────
   async function handleStatusChange(item: ContentItem, newStatus: string) {
@@ -100,7 +114,7 @@ export function CalendarPage() {
           style: values.style,
           production_status: values.production_status,
           planned_date: values.planned_date,
-          shoot_date: values.shoot_date || null, // ← TAMBAH
+          shoot_date: values.shoot_date || null,
           talent_count: Number(values.talent_count) || 0,
         },
       });
@@ -136,6 +150,8 @@ export function CalendarPage() {
     }
   }
 
+  const activeBrandObj = BRANDS.find((b) => b.id === activeBrand);
+
   return (
     <div className="flex animate-in flex-col gap-5 sm:gap-6">
       <SectionHeader
@@ -143,104 +159,93 @@ export function CalendarPage() {
         desc="Kelola status proses produksi dan publikasikan konten."
       />
 
-      {/* ── Status chips ── */}
-      <Card className="p-3 sm:p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
-          <Film className="h-4 w-4 text-primary" />
-          Status Proses
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setFilterStatus("all")}
-            className={cx(
-              "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-            )}
-            style={{
-              borderColor: filterStatus === "all" ? "#2F5CFF" : "#E7E9F0",
-              backgroundColor:
-                filterStatus === "all" ? "#EEF2FF" : "transparent",
-              color: filterStatus === "all" ? "#2F5CFF" : "#5B6478",
-            }}
-          >
-            Semua
-            <span
-              className="rounded-full px-1.5 text-[10px]"
-              style={{ backgroundColor: "rgba(0,0,0,0.05)" }}
-            >
-              {items.length}
-            </span>
-          </button>
+      {/* ── 🎯 Statistik Global (Semua Brand) ── */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <KpiCard
+          icon={BarChart3}
+          label="Total Konten"
+          value={globalStats.total}
+          sub="Semua brand di kalender"
+          iconColor="#2F5CFF"
+          iconBg="#EEF2FF"
+        />
+        <KpiCard
+          icon={Clock}
+          label="Konten Hari Ini"
+          value={globalStats.today}
+          sub="Jadwal hari ini"
+          iconColor="#16A34A"
+          iconBg="#EAFBF1"
+        />
+        <KpiCard
+          icon={AlertTriangle}
+          label="Terlewat"
+          value={globalStats.overdue}
+          sub={
+            globalStats.overdue > 0
+              ? "Perlu perhatian segera"
+              : "Tidak ada yang terlewat"
+          }
+          iconColor={globalStats.overdue > 0 ? "#DC2626" : "#5B6478"}
+          iconBg={globalStats.overdue > 0 ? "#FDECEC" : "#F1F5F9"}
+        />
+      </div>
 
-          {PRODUCTION_STATUSES.map((s) => {
-            const st = statusStyle(s);
-            const active = filterStatus === s;
-            return (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(s)}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition"
+      {/* ── Tab Brand ── */}
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-line bg-white p-1.5">
+        {BRANDS.map((brand) => {
+          const active = activeBrand === brand.id;
+          return (
+            <button
+              key={brand.id}
+              onClick={() => setActiveBrand(brand.id)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition"
+              style={{
+                backgroundColor: active ? brand.color : "transparent",
+                color: active ? "#fff" : "#5B6478",
+              }}
+            >
+              <span
+                className="hidden h-2 w-2 shrink-0 rounded-full sm:inline-block"
+                style={{ backgroundColor: active ? "#fff" : brand.color }}
+              />
+              <span className="truncate">{brand.name}</span>
+              <span
+                className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
                 style={{
-                  borderColor: active ? st.fg : "#E7E9F0",
-                  backgroundColor: active ? st.bg : "transparent",
-                  color: active ? st.fg : "#5B6478",
+                  backgroundColor: active
+                    ? "rgba(255,255,255,0.25)"
+                    : `${brand.color}20`,
+                  color: active ? "#fff" : brand.color,
                 }}
               >
-                <span
-                  className="inline-block h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: st.dot }}
-                />
-                {s}
-                <span
-                  className="rounded-full px-1.5 text-[10px]"
-                  style={{ backgroundColor: "rgba(0,0,0,0.05)" }}
-                >
-                  {statusCounts[s] ?? 0}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* ── Filter brand ── */}
-      <Card className="p-3 sm:p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select
-            value={filterBrand}
-            onChange={setFilterBrand}
-            options={[
-              { value: "all", label: "Semua Brand" },
-              ...BRANDS.map((b) => ({ value: b.id, label: b.name })),
-            ]}
-          />
-          <Pill tone="blue">{filtered.length} konten</Pill>
-        </div>
-      </Card>
+                {brandCounts[brand.id] ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* ── Loading ── */}
       {query.isLoading && (
         <Card className="p-12 text-center text-sm text-sub">Memuat…</Card>
       )}
 
-      {/* ── Empty state ── */}
+      {/* ── Empty State ── */}
       {!query.isLoading && filtered.length === 0 && (
         <Card className="p-12 text-center">
           <CalendarDays className="mx-auto mb-3 h-10 w-10 text-line" />
           <div className="text-sm font-semibold text-ink">
-            {items.length === 0
-              ? "Belum ada konten di Kalender"
-              : "Tidak ada konten dengan filter ini"}
+            Belum ada konten untuk {activeBrandObj?.name}
           </div>
           <p className="mt-1 text-xs text-sub">
-            {items.length === 0
-              ? "Pindahkan konten dari Perencanaan untuk mulai produksi."
-              : "Coba ubah filter brand atau status."}
+            Pindahkan konten dari Perencanaan untuk mulai produksi.
           </p>
         </Card>
       )}
 
-      {/* ── List kartu ── */}
-      {filtered.length > 0 && (
+      {/* ── Grid Card Konten ── */}
+      {!query.isLoading && filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((p) => {
             const brand = BRANDS.find((b) => b.id === p.brand_id);
@@ -251,7 +256,7 @@ export function CalendarPage() {
                 key={p.id}
                 className="flex flex-col gap-3 p-4 transition hover:shadow-md"
               >
-                {/* Header: brand + tanggal */}
+                {/* Header: Brand & Tanggal */}
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-xs font-medium text-sub">
                     <BrandDot id={p.brand_id} />
@@ -272,7 +277,7 @@ export function CalendarPage() {
                   {p.title}
                 </div>
 
-                {/* Badges */}
+                {/* Format & Platform */}
                 <div className="flex flex-wrap gap-1.5">
                   {p.platform && (
                     <Pill tone="blue" className="!text-[10px]">
@@ -286,16 +291,13 @@ export function CalendarPage() {
                     </Pill>
                   )}
                 </div>
-                {/* 👤 Dibuat oleh */}
-                <div className="flex items-center gap-1.5 text-[10px] text-sub">
-                  <span>👤</span>
-                  <span className="truncate">
-                    Dibuat oleh{" "}
-                    <strong>{p.created_by_name ?? "Unknown"}</strong>
-                  </span>
+
+                {/* Dibuat Oleh */}
+                <div className="text-[10px] text-sub">
+                  👤 Dibuat oleh {p.created_by_name ?? "Unknown"}
                 </div>
 
-                {/* Dropdown status */}
+                {/* Dropdown Status */}
                 <div className="flex items-center justify-between rounded-lg border border-line bg-slate-50 px-3 py-2">
                   <span className="text-[10px] font-medium text-sub">
                     Status
@@ -372,7 +374,7 @@ export function CalendarPage() {
               cta: editing.cta ?? "",
               link_ref: editing.link_ref ?? "",
               talent_count: String(editing.talent_count ?? 0),
-              shoot_date: editing.shoot_date ?? "", // ← TAMBAH
+              shoot_date: editing.shoot_date ?? "",
               production_status: editing.production_status ?? "Direncanakan",
               planned_date: editing.planned_date ?? "",
             }}

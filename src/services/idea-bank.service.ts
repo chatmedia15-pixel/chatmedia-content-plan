@@ -23,6 +23,7 @@ export interface BankIdea {
   reason: string | null;
   tags: string[];
   created_by: string | null;
+  created_by_name: string | null;
   created_at: string;
 }
 
@@ -43,6 +44,8 @@ export const ideaBankService = {
 
   /** Simpan ide dari draft ke bank */
   async saveToBank(idea: Partial<ContentIdea> | BankIdea): Promise<BankIdea> {
+    const { data: authData } = await supabase.auth.getUser();
+    const userEmail = authData?.user?.email ?? null;
     const payload = {
       brand_id: idea.brand_id!,
       title: idea.title!,
@@ -62,6 +65,7 @@ export const ideaBankService = {
       duration_seconds: idea.duration_seconds ?? null,
       source: idea.source ?? "manual",
       reason: idea.reason ?? null,
+      created_by_name: userEmail,
       tags: [],
     };
 
@@ -125,6 +129,7 @@ export const ideaBankService = {
       planned_date: plannedDate,
       duration_seconds: bankIdea.duration_seconds,
       reason: bankIdea.reason,
+      created_by_name: bankIdea.created_by_name,
     });
     if (insertErr) throw insertErr;
 

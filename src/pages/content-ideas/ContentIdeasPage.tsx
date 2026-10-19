@@ -182,6 +182,10 @@ export function ContentIdeasPage() {
     plannedDate: string,
   ) {
     try {
+      // 🎯 Ambil email user yang login
+      const { data: authData } = await supabase.auth.getUser();
+      const userEmail = authData?.user?.email ?? null;
+
       const { error } = await supabase.from("content_items").insert({
         brand_id: draft.brand_id,
         title: draft.title,
@@ -202,6 +206,7 @@ export function ContentIdeasPage() {
         planned_date: plannedDate,
         duration_seconds: draft.duration_seconds,
         reason: draft.reason,
+        created_by_name: userEmail, // 🎯 TAMBAHKAN BARIS INI
       });
       if (error) throw error;
 
@@ -512,7 +517,9 @@ export function ContentIdeasPage() {
                         year: "numeric",
                       })}
                     </div>
-
+                    <div className="text-[10px] text-sub">
+                      👤 {idea.created_by_name ?? "Unknown"}
+                    </div>
                     <div className="grid grid-cols-3 gap-1.5">
                       <button
                         onClick={() =>

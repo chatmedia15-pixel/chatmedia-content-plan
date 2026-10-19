@@ -23,7 +23,7 @@ import {
 } from "@/components/forms/ContentForm";
 import { ContentDetailModal } from "@/components/forms/ContentDetailModal";
 import { BRANDS } from "@/lib/constants";
-import { fmtDate, cx } from "@/lib/format";
+import { fmtDate } from "@/lib/format";
 import {
   useContentItems,
   useCreateContent,
@@ -37,7 +37,7 @@ import type { ContentItem } from "@/types/content";
 export function PlanningPage() {
   const { push, toasts } = useToast();
 
-  const [filterBrand, setFilterBrand] = useState("all");
+  const [activeBrand, setActiveBrand] = useState<string>(BRANDS[0].id);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [detail, setDetail] = useState<ContentItem | null>(null);
@@ -52,10 +52,11 @@ export function PlanningPage() {
 
   const items = query.data ?? [];
 
+  // ── Filter per Brand Aktif + Search ──
   const filtered = useMemo(() => {
     return items
       .filter((p) => {
-        if (filterBrand !== "all" && p.brand_id !== filterBrand) return false;
+        if (p.brand_id !== activeBrand) return false;
         if (search.trim()) {
           const q = search.toLowerCase();
           return (
@@ -70,7 +71,16 @@ export function PlanningPage() {
         const db = b.planned_date ?? "9999";
         return da.localeCompare(db);
       });
-  }, [items, filterBrand, search]);
+  }, [items, activeBrand, search]);
+
+  // ── Hitung jumlah konten per brand ──
+  const brandCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    BRANDS.forEach((b) => {
+      counts[b.id] = items.filter((it) => it.brand_id === b.id).length;
+    });
+    return counts;
+  }, [items]);
 
   // ── Handlers ─────────────────────────────────────
   async function handleAdd(values: ContentFormValues) {
@@ -151,6 +161,8 @@ export function PlanningPage() {
     }
   }
 
+  const activeBrandObj = BRANDS.find((b) => b.id === activeBrand);
+
   return (
     <div className="flex animate-in flex-col gap-5 sm:gap-6">
       <SectionHeader
@@ -167,6 +179,42 @@ export function PlanningPage() {
         }
       />
 
+      {/* ── Tab Brand ── */}
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-line bg-white p-1.5">
+        {BRANDS.map((brand) => {
+          const active = activeBrand === brand.id;
+          return (
+            <button
+              key={brand.id}
+              onClick={() => setActiveBrand(brand.id)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition"
+              style={{
+                backgroundColor: active ? brand.color : "transparent",
+                color: active ? "#fff" : "#5B6478",
+              }}
+            >
+              <span
+                className="hidden h-2 w-2 shrink-0 rounded-full sm:inline-block"
+                style={{ backgroundColor: active ? "#fff" : brand.color }}
+              />
+              <span className="truncate">{brand.name}</span>
+              <span
+                className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{
+                  backgroundColor: active
+                    ? "rgba(255,255,255,0.25)"
+                    : `${brand.color}20`,
+                  color: active ? "#fff" : brand.color,
+                }}
+              >
+                {brandCounts[brand.id] ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Search ── */}
       <Card className="p-3 sm:p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[180px] flex-1">
@@ -174,39 +222,36 @@ export function PlanningPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari judul / hook..."
+              placeholder={`Cari konten ${activeBrandObj?.name}...`}
               className="w-full rounded-lg border border-line bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
             />
           </div>
-          <Select
-            value={filterBrand}
-            onChange={setFilterBrand}
-            options={[
-              { value: "all", label: "Semua Brand" },
-              ...BRANDS.map((b) => ({ value: b.id, label: b.name })),
-            ]}
-          />
           <Pill tone="blue">{filtered.length} konten</Pill>
         </div>
       </Card>
 
+      {/* ── Loading ── */}
       {query.isLoading && (
         <Card className="p-12 text-center text-sm text-sub">Memuat…</Card>
       )}
 
+      {/* ── Empty ── */}
       {!query.isLoading && filtered.length === 0 && (
         <Card className="p-12 text-center">
           <CalendarRange className="mx-auto mb-3 h-10 w-10 text-line" />
           <div className="text-sm font-semibold text-ink">
-            Belum ada konten di Perencanaan
+            {items.filter((it) => it.brand_id === activeBrand).length === 0
+              ? `Belum ada konten untuk ${activeBrandObj?.name}`
+              : "Tidak ada konten dengan filter ini"}
           </div>
           <p className="mt-1 text-xs text-sub">
-            Tambah konten manual, atau kirim ide dari halaman Ide Konten.
+            Klik "Tambah Konten" atau kirim ide dari halaman Ide Konten.
           </p>
         </Card>
       )}
 
-      {filtered.length > 0 && (
+      {/* ── Grid Card ── */}
+      {!query.isLoading && filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((p) => {
             const brand = BRANDS.find((b) => b.id === p.brand_id);
@@ -253,18 +298,8 @@ export function PlanningPage() {
                   )}
                 </div>
 
-                {p.hook && (
-                  <div className="line-clamp-2 rounded-lg bg-bg px-3 py-2 text-xs italic text-sub">
-                    "{p.hook}"
-                  </div>
-                )}
-                {/* 👤 Dibuat oleh */}
-                <div className="flex items-center gap-1.5 text-[10px] text-sub">
-                  <span>👤</span>
-                  <span className="truncate">
-                    Dibuat oleh{" "}
-                    <strong>{p.created_by_name ?? "Unknown"}</strong>
-                  </span>
+                <div className="text-[10px] text-sub">
+                  👤 Dibuat oleh {p.created_by_name ?? "Unknown"}
                 </div>
 
                 <div className="mt-1 grid grid-cols-2 gap-2">
@@ -294,9 +329,7 @@ export function PlanningPage() {
                   </button>
                   <button
                     onClick={() => handleMove(p)}
-                    className={cx(
-                      "flex items-center justify-center gap-1 rounded-lg bg-primary py-2 text-xs font-medium text-white transition hover:opacity-90",
-                    )}
+                    className="flex items-center justify-center gap-1 rounded-lg bg-primary py-2 text-xs font-medium text-white transition hover:opacity-90"
                   >
                     <MoveRight className="h-3 w-3" />
                     Ke Kalender
@@ -308,7 +341,7 @@ export function PlanningPage() {
         </div>
       )}
 
-      {/* Modal tambah */}
+      {/* ── Modals ── */}
       {showAdd && (
         <Modal
           open
@@ -324,7 +357,6 @@ export function PlanningPage() {
         </Modal>
       )}
 
-      {/* Modal edit */}
       {editing && (
         <Modal open onClose={() => setEditing(null)} title="Edit Konten" wide>
           <ContentForm
@@ -353,12 +385,10 @@ export function PlanningPage() {
         </Modal>
       )}
 
-      {/* Modal detail */}
       {detail && (
         <ContentDetailModal item={detail} onClose={() => setDetail(null)} />
       )}
 
-      {/* Toasts */}
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2">
           {toasts.map((t) => (

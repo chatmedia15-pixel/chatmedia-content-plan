@@ -62,6 +62,7 @@ export interface ContentIdea {
   source: "manual" | "template" | "AI";
   reason: string | null;
   created_by: string | null;
+  created_by_name: string | null;
   created_at: string;
 }
 
@@ -159,4 +160,5 @@ export interface ContentIdeaInput {
   duration_seconds?: number | null;
   source?: "manual" | "template" | "AI";
   reason?: string | null;
+  created_by_name?: string | null;
 }

@@ -18,9 +18,18 @@ export const ideasService = {
 
   /** Buat ide baru */
   async create(input: ContentIdeaInput): Promise<ContentIdea> {
+    // 🎯 Ambil email user yang login
+    const { data: authData } = await supabase.auth.getUser();
+    const userEmail = authData?.user?.email ?? null;
+
+    const payload = {
+      ...input,
+      created_by_name: userEmail,
+    };
+
     const { data, error } = await supabase
       .from("content_ideas")
-      .insert(input)
+      .insert(payload)
       .select()
       .single();
     if (error) throw error;
@@ -78,6 +87,7 @@ export const ideasService = {
       planned_date: plannedDate,
       duration_seconds: idea.duration_seconds,
       reason: idea.reason,
+      created_by_name: idea.created_by_name,
     });
     if (insertErr) throw insertErr;
 

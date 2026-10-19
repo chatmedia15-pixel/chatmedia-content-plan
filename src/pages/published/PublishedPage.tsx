@@ -30,7 +30,7 @@ import type { ContentItem } from "@/types/content";
 export function PublishedPage() {
   const { push, toasts } = useToast();
 
-  const [filterBrand, setFilterBrand] = useState("all");
+  const [activeBrand, setActiveBrand] = useState<string>(BRANDS[0].id);
   const [filterMonth, setFilterMonth] = useState("all");
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<ContentItem | null>(null);
@@ -43,7 +43,7 @@ export function PublishedPage() {
 
   const items = query.data ?? [];
 
-  // ── Daftar bulan yang tersedia ─────────────────
+  // ── Daftar bulan tersedia ──
   const availableMonths = useMemo(() => {
     const months: Record<string, number> = {};
     items.forEach((p) => {
@@ -58,10 +58,11 @@ export function PublishedPage() {
       .map((k) => ({ value: k, label: monthLabel(k), count: months[k] }));
   }, [items]);
 
+  // ── Filter per Brand Aktif ──
   const filtered = useMemo(() => {
     return items
       .filter((p) => {
-        if (filterBrand !== "all" && p.brand_id !== filterBrand) return false;
+        if (p.brand_id !== activeBrand) return false;
         if (filterMonth !== "all") {
           const key =
             monthKey(p.planned_date) || monthKey(p.published_at?.slice(0, 10));
@@ -78,7 +79,16 @@ export function PublishedPage() {
         const db = b.published_at ?? b.planned_date ?? "";
         return db.localeCompare(da);
       });
-  }, [items, filterBrand, filterMonth, search]);
+  }, [items, activeBrand, filterMonth, search]);
+
+  // ── Hitung jumlah konten per brand ──
+  const brandCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    BRANDS.forEach((b) => {
+      counts[b.id] = items.filter((it) => it.brand_id === b.id).length;
+    });
+    return counts;
+  }, [items]);
 
   // ── Handlers ─────────────────────────────────────
   async function handleSaveLink(url: string) {
@@ -109,6 +119,8 @@ export function PublishedPage() {
     }
   }
 
+  const activeBrandObj = BRANDS.find((b) => b.id === activeBrand);
+
   return (
     <div className="flex animate-in flex-col gap-5 sm:gap-6">
       <SectionHeader
@@ -116,7 +128,42 @@ export function PublishedPage() {
         desc="Arsip konten yang sudah tayang di Instagram atau TikTok."
       />
 
-      {/* Filter bar */}
+      {/* ── Tab Brand ── */}
+      <div className="flex flex-wrap gap-1.5 rounded-2xl border border-line bg-white p-1.5">
+        {BRANDS.map((brand) => {
+          const active = activeBrand === brand.id;
+          return (
+            <button
+              key={brand.id}
+              onClick={() => setActiveBrand(brand.id)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition"
+              style={{
+                backgroundColor: active ? brand.color : "transparent",
+                color: active ? "#fff" : "#5B6478",
+              }}
+            >
+              <span
+                className="hidden h-2 w-2 shrink-0 rounded-full sm:inline-block"
+                style={{ backgroundColor: active ? "#fff" : brand.color }}
+              />
+              <span className="truncate">{brand.name}</span>
+              <span
+                className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{
+                  backgroundColor: active
+                    ? "rgba(255,255,255,0.25)"
+                    : `${brand.color}20`,
+                  color: active ? "#fff" : brand.color,
+                }}
+              >
+                {brandCounts[brand.id] ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Filter (Bulan + Search) ── */}
       <Card className="p-3 sm:p-4">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative min-w-[180px] flex-1">
@@ -124,7 +171,7 @@ export function PublishedPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari judul konten..."
+              placeholder={`Cari konten ${activeBrandObj?.name}...`}
               className="w-full rounded-lg border border-line bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
             />
           </div>
@@ -139,42 +186,32 @@ export function PublishedPage() {
               })),
             ]}
           />
-          <Select
-            value={filterBrand}
-            onChange={setFilterBrand}
-            options={[
-              { value: "all", label: "Semua Brand" },
-              ...BRANDS.map((b) => ({ value: b.id, label: b.name })),
-            ]}
-          />
           <Pill tone="good">{filtered.length} live</Pill>
         </div>
       </Card>
 
-      {/* Loading */}
+      {/* ── Loading ── */}
       {query.isLoading && (
         <Card className="p-12 text-center text-sm text-sub">Memuat…</Card>
       )}
 
-      {/* Empty */}
+      {/* ── Empty ── */}
       {!query.isLoading && filtered.length === 0 && (
         <Card className="p-12 text-center">
           <Archive className="mx-auto mb-3 h-10 w-10 text-line" />
           <div className="text-sm font-semibold text-ink">
-            {items.length === 0
-              ? "Belum ada konten dipublikasi"
+            {items.filter((it) => it.brand_id === activeBrand).length === 0
+              ? `Belum ada konten dipublikasi untuk ${activeBrandObj?.name}`
               : "Tidak ada konten dengan filter ini"}
           </div>
           <p className="mt-1 text-xs text-sub">
-            {items.length === 0
-              ? "Publish konten dari halaman Kalender untuk melihatnya di sini."
-              : "Coba ubah filter bulan atau brand."}
+            Publish konten dari halaman Kalender untuk melihatnya di sini.
           </p>
         </Card>
       )}
 
-      {/* List */}
-      {filtered.length > 0 && (
+      {/* ── Grid Card ── */}
+      {!query.isLoading && filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((p) => {
             const brand = BRANDS.find((b) => b.id === p.brand_id);
@@ -185,7 +222,6 @@ export function PublishedPage() {
                 key={p.id}
                 className="flex flex-col gap-3 p-4 transition hover:shadow-md"
               >
-                {/* Header */}
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-xs font-medium text-sub">
                     <BrandDot id={p.brand_id} />
@@ -194,12 +230,10 @@ export function PublishedPage() {
                   <Pill tone="good">Live</Pill>
                 </div>
 
-                {/* Judul */}
                 <div className="line-clamp-2 text-sm font-semibold">
                   {p.title}
                 </div>
 
-                {/* Badges */}
                 <div className="flex flex-wrap gap-1.5">
                   {p.platform && (
                     <Pill tone="blue" className="!text-[10px]">
@@ -213,23 +247,17 @@ export function PublishedPage() {
                     </Pill>
                   )}
                 </div>
-                {/* 👤 Dibuat oleh */}
-                <div className="flex items-center gap-1.5 text-[10px] text-sub">
-                  <span>👤</span>
-                  <span className="truncate">
-                    Dibuat oleh{" "}
-                    <strong>{p.created_by_name ?? "Unknown"}</strong>
-                  </span>
+
+                <div className="text-[10px] text-sub">
+                  👤 Dibuat oleh {p.created_by_name ?? "Unknown"}
                 </div>
 
-                {/* Tanggal */}
                 {date && (
-                  <div className="text-sm font-medium text-sub">
+                  <div className="text-[11px] text-sub">
                     Dipublikasi: {fmtDate(date)}
                   </div>
                 )}
 
-                {/* Link live */}
                 {p.published_url ? (
                   <a
                     href={p.published_url}
@@ -250,7 +278,6 @@ export function PublishedPage() {
                   </button>
                 )}
 
-                {/* Actions */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setDetail(p)}
@@ -281,12 +308,12 @@ export function PublishedPage() {
         </div>
       )}
 
-      {/* Modal Detail */}
+      {/* ── Modal Detail ── */}
       {detail && (
         <ContentDetailModal item={detail} onClose={() => setDetail(null)} />
       )}
 
-      {/* Modal Edit Link */}
+      {/* ── Modal Edit Link ── */}
       {editLink && (
         <EditLinkModal
           item={editLink}
@@ -296,7 +323,6 @@ export function PublishedPage() {
         />
       )}
 
-      {/* Toast */}
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2">
           {toasts.map((t) => (

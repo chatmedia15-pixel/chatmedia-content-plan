@@ -86,3 +86,31 @@ export function isValidUrl(s: string): boolean {
     return false;
   }
 }
+/** Format tanggal panjang Indonesia: "Senin, 19 Oktober 2026" */
+export function fmtDateFull(dateStr: string | null): string {
+  if (!dateStr) return "-";
+  return new Date(dateStr).toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** Cek apakah tanggal = hari ini */
+export function isToday(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr + "T00:00:00");
+  return d.getTime() === today.getTime();
+}
+
+/** Cek apakah tanggal < hari ini (overdue) */
+export function isOverdue(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr + "T00:00:00");
+  return d.getTime() < today.getTime();
+}
