@@ -10,3 +10,4 @@ export { Modal } from "./Modal";
 export { Toast } from "./Toast";
 export type { ToastItem } from "./Toast";
 export { InstagramIcon } from "./InstagramIcon";
+export { ConfirmDialog } from "./ConfirmDialog";

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Modal, Pill, BrandDot, PlatformIcon } from "@/components/ui";
 import { Link as LinkIcon, ExternalLink, X, Copy, Check } from "lucide-react";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, fmtDateFull } from "@/lib/format";
 import { BRANDS } from "@/lib/constants";
 import type { ContentItem } from "@/types/content";
 
@@ -74,11 +74,28 @@ export function ContentDetailModal({ item, onClose }: ContentDetailModalProps) {
         {/* Info grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <InfoRow label="Brand" value={brand?.name ?? item.brand_id} />
-          <InfoRow label="Tanggal Publish" value={fmtDate(item.planned_date)} />
-          <InfoRow
-            label="Tanggal Take"
-            value={item.shoot_date ? fmtDate(item.shoot_date) : "-"}
-          />
+          {item.workflow_stage !== "planning" && (
+            <>
+              <InfoRow
+                label={
+                  item.workflow_stage === "published"
+                    ? "Jadwal Publish"
+                    : "Akan Dipublikasi"
+                }
+                value={fmtDate(item.planned_date)}
+              />
+              <InfoRow
+                label="Tanggal Take"
+                value={item.shoot_date ? fmtDate(item.shoot_date) : "-"}
+              />
+            </>
+          )}
+          {item.workflow_stage === "published" && (
+            <InfoRow
+              label="Dipublikasi Pada"
+              value={fmtDateFull(item.published_at)}
+            />
+          )}
           <InfoRow label="Platform" value={item.platform} />
           <InfoRow label="Format" value={item.format ?? "-"} />
           <InfoRow label="Pillar" value={item.content_pillar ?? "-"} />

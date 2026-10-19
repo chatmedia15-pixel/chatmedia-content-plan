@@ -52,7 +52,7 @@ export function useSendIdeaToPlanning() {
       plannedDate,
     }: {
       idea: ContentIdea;
-      plannedDate: string;
+      plannedDate?: string | null;
     }) => ideasService.sendToPlanning(idea, plannedDate),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ideasKeys.all });

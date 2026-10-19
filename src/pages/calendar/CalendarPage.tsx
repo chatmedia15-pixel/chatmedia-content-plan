@@ -16,6 +16,7 @@ import {
   PlatformIcon,
   KpiCard,
   Modal,
+  ConfirmDialog,
   SectionHeader,
 } from "@/components/ui";
 import {
@@ -24,7 +25,7 @@ import {
 } from "@/components/forms/ContentForm";
 import { ContentDetailModal } from "@/components/forms/ContentDetailModal";
 import { BRANDS, PRODUCTION_STATUSES, statusStyle } from "@/lib/constants";
-import { fmtDate, isToday, isOverdue } from "@/lib/format";
+import { fmtDate, isToday, isOverdue, relativeDay } from "@/lib/format";
 import {
   useContentItems,
   useUpdateContent,
@@ -40,6 +41,7 @@ export function CalendarPage() {
   const [activeBrand, setActiveBrand] = useState<string>(BRANDS[0].id);
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [detail, setDetail] = useState<ContentItem | null>(null);
+  const [deleteItem, setDeleteItem] = useState<ContentItem | null>(null);
   const [publishItem, setPublishItem] = useState<ContentItem | null>(null);
 
   // Data
@@ -126,7 +128,6 @@ export function CalendarPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus konten ini dari Kalender?")) return;
     try {
       await deleteMut.mutateAsync(id);
       push("Konten dihapus");
@@ -262,14 +263,6 @@ export function CalendarPage() {
                     <BrandDot id={p.brand_id} />
                     {brand?.name ?? p.brand_id}
                   </span>
-                  {p.planned_date && (
-                    <Pill tone="blue" className="!text-sm !font-semibold">
-                      {fmtDate(p.planned_date, {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </Pill>
-                  )}
                 </div>
 
                 {/* Judul */}
@@ -291,6 +284,55 @@ export function CalendarPage() {
                     </Pill>
                   )}
                 </div>
+
+                {/* Jadwal */}
+                {(() => {
+                  const late =
+                    isOverdue(p.planned_date) &&
+                    p.production_status !== "Siap Publikasi";
+                  const today = isToday(p.planned_date);
+                  const color = late
+                    ? "#DC2626"
+                    : today
+                      ? "#D97706"
+                      : "#2F5CFF";
+                  const bg = late ? "#FDECEC" : today ? "#FEF6E7" : "#EEF2FF";
+                  const long: Intl.DateTimeFormatOptions = {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  };
+                  return (
+                    <div
+                      className="flex flex-col gap-1 rounded-lg px-3 py-2"
+                      style={{ backgroundColor: bg }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className="text-xs font-semibold"
+                          style={{ color }}
+                        >
+                          {p.planned_date
+                            ? `📅 Akan dipublikasi ${fmtDate(p.planned_date, long)}`
+                            : "📅 Tanggal publish belum ditentukan"}
+                        </span>
+                        {p.planned_date && (
+                          <span
+                            className="shrink-0 text-[10px] font-semibold"
+                            style={{ color }}
+                          >
+                            {relativeDay(p.planned_date)}
+                          </span>
+                        )}
+                      </div>
+                      {p.shoot_date && (
+                        <div className="text-[11px] text-sub">
+                          🎬 Take: {fmtDate(p.shoot_date, long)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Dibuat Oleh */}
                 <div className="text-[10px] text-sub">
@@ -336,7 +378,7 @@ export function CalendarPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => handleDelete(p.id)}
+                    onClick={() => setDeleteItem(p)}
                     className="flex items-center justify-center gap-1 rounded-lg border border-danger-bg py-2 text-xs font-medium text-danger transition hover:bg-danger-bg"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -401,6 +443,19 @@ export function CalendarPage() {
       )}
 
       {/* ── Toast ── */}
+      <ConfirmDialog
+        open={!!deleteItem}
+        itemName={deleteItem?.title}
+        message="Konten akan dihapus permanen dari Kalender."
+        loading={deleteMut.isPending}
+        onCancel={() => setDeleteItem(null)}
+        onConfirm={async () => {
+          if (!deleteItem) return;
+          await handleDelete(deleteItem.id);
+          setDeleteItem(null);
+        }}
+      />
+
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2">
           {toasts.map((t) => (

@@ -37,6 +37,8 @@ interface ContentFormProps {
   onSubmit: (values: ContentFormValues) => void;
   onCancel: () => void;
   submitLabel?: string;
+  /** Sembunyikan input Tanggal Publish & Tanggal Take (dipakai di Perencanaan) */
+  hideDates?: boolean;
 }
 
 function defaultValues(): ContentFormValues {
@@ -66,6 +68,7 @@ export function ContentForm({
   onSubmit,
   onCancel,
   submitLabel = "Simpan",
+  hideDates = false,
 }: ContentFormProps) {
   const [form, setForm] = useState<ContentFormValues>({
     ...defaultValues(),
@@ -222,25 +225,31 @@ export function ContentForm({
       className="flex flex-col gap-3 text-sm"
     >
       {/* Baris 1 */}
-      <div className="grid grid-cols-3 gap-3">
-        <label className="flex flex-col gap-1 text-xs text-sub">
-          <span className="font-medium">Tanggal Publish</span>
-          <input
-            type="date"
-            value={form.planned_date}
-            onChange={(e) => set("planned_date", e.target.value)}
-            className={inputCls}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-sub">
-          <span className="font-medium">Tanggal Take</span>
-          <input
-            type="date"
-            value={form.shoot_date}
-            onChange={(e) => set("shoot_date", e.target.value)}
-            className={inputCls}
-          />
-        </label>
+      <div
+        className={`grid gap-3 ${hideDates ? "grid-cols-1" : "grid-cols-3"}`}
+      >
+        {!hideDates && (
+          <label className="flex flex-col gap-1 text-xs text-sub">
+            <span className="font-medium">Tanggal Publish</span>
+            <input
+              type="date"
+              value={form.planned_date}
+              onChange={(e) => set("planned_date", e.target.value)}
+              className={inputCls}
+            />
+          </label>
+        )}
+        {!hideDates && (
+          <label className="flex flex-col gap-1 text-xs text-sub">
+            <span className="font-medium">Tanggal Take</span>
+            <input
+              type="date"
+              value={form.shoot_date}
+              onChange={(e) => set("shoot_date", e.target.value)}
+              className={inputCls}
+            />
+          </label>
+        )}
         <Select
           label="Brand"
           value={form.brand_id}

@@ -106,7 +106,7 @@ export const ideaBankService = {
    */
   async sendToPlanningFromBank(
     bankIdea: BankIdea,
-    plannedDate: string,
+    plannedDate: string | null = null,
   ): Promise<void> {
     // 1. Insert ke content_items
     const { error: insertErr } = await supabase.from("content_items").insert({

@@ -65,7 +65,10 @@ export const ideasService = {
    * Insert ke content_items dengan workflow_stage='planning',
    * lalu hapus dari content_ideas.
    */
-  async sendToPlanning(idea: ContentIdea, plannedDate: string): Promise<void> {
+  async sendToPlanning(
+    idea: ContentIdea,
+    plannedDate: string | null = null,
+  ): Promise<void> {
     // 1. Insert ke content_items
     const { error: insertErr } = await supabase.from("content_items").insert({
       brand_id: idea.brand_id,

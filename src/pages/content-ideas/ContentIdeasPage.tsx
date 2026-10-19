@@ -20,6 +20,7 @@ import {
   Select,
   Modal,
   SectionHeader,
+  ConfirmDialog,
 } from "@/components/ui";
 import {
   BRANDS,
@@ -30,7 +31,6 @@ import {
   type Platform,
   type Objective,
 } from "@/lib/constants";
-import { toDateInput, fmtDate } from "@/lib/format";
 import {
   useIdeaBank,
   useSaveToBank,
@@ -78,6 +78,8 @@ export function ContentIdeasPage() {
   >(null);
   const [showManual, setShowManual] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
+  const [deleteBank, setDeleteBank] = useState<BankIdea | null>(null);
+  const [discardDraft, setDiscardDraft] = useState<DraftIdea | null>(null);
 
   // Filter bank
   const filteredBank = useMemo(() => {
@@ -167,7 +169,6 @@ export function ContentIdeasPage() {
   }
 
   async function handleDeleteFromBank(id: string) {
-    if (!confirm("Hapus ide ini dari bank?")) return;
     try {
       await deleteFromBank.mutateAsync(id);
       push("Ide dihapus dari bank");
@@ -177,10 +178,7 @@ export function ContentIdeasPage() {
     }
   }
 
-  async function handleSendDraftToPlanning(
-    draft: DraftIdea,
-    plannedDate: string,
-  ) {
+  async function handleSendDraftToPlanning(draft: DraftIdea) {
     try {
       // 🎯 Ambil email user yang login
       const { data: authData } = await supabase.auth.getUser();
@@ -203,7 +201,7 @@ export function ContentIdeasPage() {
         style: draft.style,
         production_status: "Direncanakan",
         workflow_stage: "planning",
-        planned_date: plannedDate,
+        planned_date: null,
         duration_seconds: draft.duration_seconds,
         reason: draft.reason,
         created_by_name: userEmail, // 🎯 TAMBAHKAN BARIS INI
@@ -218,12 +216,9 @@ export function ContentIdeasPage() {
     }
   }
 
-  async function handleSendBankToPlanning(
-    bankIdea: BankIdea,
-    plannedDate: string,
-  ) {
+  async function handleSendBankToPlanning(bankIdea: BankIdea) {
     try {
-      await sendFromBank.mutateAsync({ bankIdea, plannedDate });
+      await sendFromBank.mutateAsync({ bankIdea });
       push(`"${bankIdea.title.substring(0, 30)}..." dipindah ke Perencanaan`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Gagal kirim";
@@ -387,7 +382,7 @@ export function ContentIdeasPage() {
                           </Pill>
                         )}
                         <button
-                          onClick={() => handleDiscardDraft(draft._localId)}
+                          onClick={() => setDiscardDraft(draft)}
                           className="rounded p-1 text-sub transition hover:bg-danger-bg hover:text-danger"
                           title="Buang draft"
                         >
@@ -510,14 +505,6 @@ export function ContentIdeasPage() {
                     )}
 
                     <div className="text-[10px] text-sub">
-                      Disimpan:{" "}
-                      {fmtDate(idea.created_at, {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </div>
-                    <div className="text-[10px] text-sub">
                       👤 {idea.created_by_name ?? "Unknown"}
                     </div>
                     <div className="grid grid-cols-3 gap-1.5">
@@ -531,7 +518,7 @@ export function ContentIdeasPage() {
                         Detail
                       </button>
                       <button
-                        onClick={() => handleDeleteFromBank(idea.id)}
+                        onClick={() => setDeleteBank(idea)}
                         className="flex items-center justify-center gap-1 rounded-lg border border-danger-bg py-2 text-[11px] font-medium text-danger transition hover:bg-danger-bg"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -568,11 +555,11 @@ export function ContentIdeasPage() {
           format={sendItem.data.format}
           fromBank={sendItem.type === "bank"}
           onClose={() => setSendItem(null)}
-          onConfirm={async (date) => {
+          onConfirm={async () => {
             if (sendItem.type === "draft") {
-              await handleSendDraftToPlanning(sendItem.data, date);
+              await handleSendDraftToPlanning(sendItem.data);
             } else {
-              await handleSendBankToPlanning(sendItem.data, date);
+              await handleSendBankToPlanning(sendItem.data);
             }
             setSendItem(null);
           }}
@@ -604,6 +591,32 @@ export function ContentIdeasPage() {
           loading={generateIdeas.isPending}
         />
       )}
+
+      <ConfirmDialog
+        open={!!deleteBank}
+        itemName={deleteBank?.title}
+        message="Ide akan dihapus permanen dari Bank Ide."
+        loading={deleteFromBank.isPending}
+        onCancel={() => setDeleteBank(null)}
+        onConfirm={async () => {
+          if (!deleteBank) return;
+          await handleDeleteFromBank(deleteBank.id);
+          setDeleteBank(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!discardDraft}
+        title="Konfirmasi Buang Draft"
+        itemName={discardDraft?.title}
+        message="Draft belum tersimpan, jadi tidak bisa dikembalikan."
+        confirmLabel="Ya, Buang"
+        onCancel={() => setDiscardDraft(null)}
+        onConfirm={() => {
+          if (discardDraft) handleDiscardDraft(discardDraft._localId);
+          setDiscardDraft(null);
+        }}
+      />
 
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2">
@@ -832,10 +845,9 @@ function SendToPlanningModal({
   format?: string | null;
   fromBank?: boolean; // ← tambah
   onClose: () => void;
-  onConfirm: (date: string) => void;
+  onConfirm: () => void;
   loading: boolean;
 }) {
-  const [date, setDate] = useState(toDateInput(new Date()));
   const brand = BRANDS.find((b) => b.id === brandId);
 
   return (
@@ -864,20 +876,15 @@ function SendToPlanningModal({
             Perencanaan. Setelah dipindah, tidak bisa dikembalikan ke bank.
           </div>
         )}
-        <label className="flex flex-col gap-1 text-xs text-sub">
-          <span className="font-medium">Tanggal Rencana</span>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-primary"
-          />
-        </label>
+        <p className="text-xs text-sub">
+          Tanggal take dan publish ditentukan nanti, saat konten dipindah ke
+          Kalender.
+        </p>
 
         <div className="flex gap-2 border-t border-line pt-4">
           <button
-            onClick={() => onConfirm(date)}
-            disabled={loading || !date}
+            onClick={() => onConfirm()}
+            disabled={loading}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-sm font-medium text-white disabled:opacity-60"
           >
             {loading ? "Memproses…" : "Konfirmasi"}

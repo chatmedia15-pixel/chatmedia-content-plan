@@ -14,6 +14,7 @@ import {
   BrandDot,
   PlatformIcon,
   Modal,
+  ConfirmDialog,
   SectionHeader,
 } from "@/components/ui";
 import {
@@ -22,7 +23,7 @@ import {
 } from "@/components/forms/ContentForm";
 import { ContentDetailModal } from "@/components/forms/ContentDetailModal";
 import { BRANDS } from "@/lib/constants";
-import { fmtDate } from "@/lib/format";
+import { toDateInput } from "@/lib/format";
 import {
   useContentItems,
   useCreateContent,
@@ -40,7 +41,9 @@ export function PlanningPage() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [detail, setDetail] = useState<ContentItem | null>(null);
+  const [deleteItem, setDeleteItem] = useState<ContentItem | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [moveItem, setMoveItem] = useState<ContentItem | null>(null);
 
   // Data
   const query = useContentItems({ workflow_stage: "planning" });
@@ -99,8 +102,8 @@ export function PlanningPage() {
         style: values.style,
         production_status: values.production_status,
         workflow_stage: "planning",
-        planned_date: values.planned_date,
-        shoot_date: values.shoot_date || null,
+        planned_date: null,
+        shoot_date: null,
         talent_count: Number(values.talent_count) || 0,
       });
       push("Konten ditambahkan");
@@ -129,8 +132,6 @@ export function PlanningPage() {
           objective: values.objective,
           style: values.style,
           production_status: values.production_status,
-          planned_date: values.planned_date,
-          shoot_date: values.shoot_date || null,
           talent_count: Number(values.talent_count) || 0,
         },
       });
@@ -142,7 +143,6 @@ export function PlanningPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus konten ini?")) return;
     try {
       await deleteMut.mutateAsync(id);
       push("Konten dihapus");
@@ -151,10 +151,22 @@ export function PlanningPage() {
     }
   }
 
-  async function handleMove(item: ContentItem) {
+  async function handleMove(
+    item: ContentItem,
+    plannedDate: string,
+    shootDate: string,
+  ) {
     try {
+      await updateMut.mutateAsync({
+        id: item.id,
+        patch: {
+          planned_date: plannedDate,
+          shoot_date: shootDate || null,
+        },
+      });
       await moveMut.mutateAsync({ id: item.id, stage: "calendar" });
       push(`"${item.title}" dipindah ke Kalender`);
+      setMoveItem(null);
     } catch (err) {
       push(`Gagal pindah: ${err instanceof Error ? err.message : "unknown"}`);
     }
@@ -264,14 +276,6 @@ export function PlanningPage() {
                     <BrandDot id={p.brand_id} />
                     {brand?.name ?? p.brand_id}
                   </span>
-                  {p.planned_date && (
-                    <Pill tone="warn" className="!text-sm !font-semibold">
-                      {fmtDate(p.planned_date, {
-                        day: "2-digit",
-                        month: "short",
-                      })}
-                    </Pill>
-                  )}
                 </div>
 
                 <div className="line-clamp-2 text-sm font-semibold">
@@ -320,14 +324,14 @@ export function PlanningPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => handleDelete(p.id)}
+                    onClick={() => setDeleteItem(p)}
                     className="flex items-center justify-center gap-1 rounded-lg border border-danger-bg py-2 text-xs font-medium text-danger transition hover:bg-danger-bg"
                   >
                     <Trash2 className="h-3 w-3" />
                     Hapus
                   </button>
                   <button
-                    onClick={() => handleMove(p)}
+                    onClick={() => setMoveItem(p)}
                     className="flex items-center justify-center gap-1 rounded-lg bg-primary py-2 text-xs font-medium text-white transition hover:opacity-90"
                   >
                     <MoveRight className="h-3 w-3" />
@@ -352,6 +356,7 @@ export function PlanningPage() {
             onSubmit={handleAdd}
             onCancel={() => setShowAdd(false)}
             submitLabel="Tambah"
+            hideDates
           />
         </Modal>
       )}
@@ -380,13 +385,36 @@ export function PlanningPage() {
             onSubmit={handleEdit}
             onCancel={() => setEditing(null)}
             submitLabel="Simpan"
+            hideDates
           />
         </Modal>
+      )}
+
+      {moveItem && (
+        <MoveToCalendarModal
+          item={moveItem}
+          onClose={() => setMoveItem(null)}
+          onConfirm={(planned, shoot) => handleMove(moveItem, planned, shoot)}
+          loading={updateMut.isPending || moveMut.isPending}
+        />
       )}
 
       {detail && (
         <ContentDetailModal item={detail} onClose={() => setDetail(null)} />
       )}
+
+      <ConfirmDialog
+        open={!!deleteItem}
+        itemName={deleteItem?.title}
+        message="Konten akan dihapus permanen dari Perencanaan."
+        loading={deleteMut.isPending}
+        onCancel={() => setDeleteItem(null)}
+        onConfirm={async () => {
+          if (!deleteItem) return;
+          await handleDelete(deleteItem.id);
+          setDeleteItem(null);
+        }}
+      />
 
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2">
@@ -401,5 +429,89 @@ export function PlanningPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Modal: Pindah ke Kalender (tentukan tanggal take & publish)
+// ─────────────────────────────────────────────────────────
+function MoveToCalendarModal({
+  item,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  item: ContentItem;
+  onClose: () => void;
+  onConfirm: (plannedDate: string, shootDate: string) => void;
+  loading: boolean;
+}) {
+  const [plannedDate, setPlannedDate] = useState(
+    item.planned_date ?? toDateInput(new Date()),
+  );
+  const [shootDate, setShootDate] = useState(item.shoot_date ?? "");
+  const brand = BRANDS.find((b) => b.id === item.brand_id);
+  const inputCls =
+    "rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-60";
+
+  return (
+    <Modal
+      open
+      onClose={loading ? () => {} : onClose}
+      title="Pindah ke Kalender"
+    >
+      <div className="flex flex-col gap-4 text-sm">
+        <div className="rounded-xl border border-line p-4">
+          <div className="mb-2 text-xs font-medium text-sub">Konten:</div>
+          <div className="flex items-center gap-2">
+            <BrandDot id={item.brand_id} />
+            <span className="font-semibold">{item.title}</span>
+          </div>
+          <div className="mt-1 text-xs text-sub">
+            {brand?.name} · {item.platform} · {item.format}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-xs text-sub">
+            <span className="font-medium">Tanggal Take</span>
+            <input
+              type="date"
+              value={shootDate}
+              onChange={(e) => setShootDate(e.target.value)}
+              disabled={loading}
+              className={inputCls}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-sub">
+            <span className="font-medium">Tanggal Publish *</span>
+            <input
+              type="date"
+              value={plannedDate}
+              onChange={(e) => setPlannedDate(e.target.value)}
+              disabled={loading}
+              className={inputCls}
+            />
+          </label>
+        </div>
+
+        <div className="flex gap-2 border-t border-line pt-4">
+          <button
+            onClick={() => onConfirm(plannedDate, shootDate)}
+            disabled={loading || !plannedDate}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
+          >
+            {loading ? "Memproses…" : "Konfirmasi"}
+          </button>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-sub disabled:opacity-60"
+          >
+            Batal
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }

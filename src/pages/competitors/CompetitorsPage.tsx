@@ -7,6 +7,7 @@ import {
   Select,
   Modal,
   SectionHeader,
+  ConfirmDialog,
 } from "@/components/ui";
 import { BRANDS } from "@/lib/constants";
 import { isValidUrl } from "@/lib/format";
@@ -60,6 +61,7 @@ export function CompetitorsPage() {
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [detail, setDetail] = useState<Competitor | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Competitor | null>(null);
 
   function persist(next: Competitor[]) {
     setItems(next);
@@ -78,7 +80,6 @@ export function CompetitorsPage() {
   }, [items, filterBrand, search]);
 
   function handleDelete(id: string) {
-    if (!confirm("Hapus kompetitor ini?")) return;
     persist(items.filter((it) => it.id !== id));
     push("Kompetitor dihapus");
   }
@@ -189,7 +190,7 @@ export function CompetitorsPage() {
                     Detail
                   </button>
                   <button
-                    onClick={() => handleDelete(it.id)}
+                    onClick={() => setDeleteItem(it)}
                     className="flex items-center justify-center gap-1 rounded-lg border border-danger-bg py-2 text-xs font-medium text-danger transition hover:bg-danger-bg"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -268,6 +269,17 @@ export function CompetitorsPage() {
           </div>
         </Modal>
       )}
+
+      <ConfirmDialog
+        open={!!deleteItem}
+        itemName={deleteItem?.name}
+        message="Data kompetitor akan dihapus permanen."
+        onCancel={() => setDeleteItem(null)}
+        onConfirm={() => {
+          if (deleteItem) handleDelete(deleteItem.id);
+          setDeleteItem(null);
+        }}
+      />
 
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2">

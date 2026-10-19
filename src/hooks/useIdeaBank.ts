@@ -39,7 +39,7 @@ export function useSendFromBankToPlanning() {
       plannedDate,
     }: {
       bankIdea: BankIdea;
-      plannedDate: string;
+      plannedDate?: string | null;
     }) => ideaBankService.sendToPlanningFromBank(bankIdea, plannedDate),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: bankKeys.all });

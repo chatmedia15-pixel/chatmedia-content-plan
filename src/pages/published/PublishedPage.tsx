@@ -14,6 +14,7 @@ import {
   PlatformIcon,
   Select,
   Modal,
+  ConfirmDialog,
   SectionHeader,
 } from "@/components/ui";
 import { ContentDetailModal } from "@/components/forms/ContentDetailModal";
@@ -34,6 +35,7 @@ export function PublishedPage() {
   const [filterMonth, setFilterMonth] = useState("all");
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<ContentItem | null>(null);
+  const [deleteItem, setDeleteItem] = useState<ContentItem | null>(null);
   const [editLink, setEditLink] = useState<ContentItem | null>(null);
 
   // Data
@@ -110,7 +112,6 @@ export function PublishedPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus konten ini dari arsip?")) return;
     try {
       await deleteMut.mutateAsync(id);
       push("Konten dihapus");
@@ -253,8 +254,16 @@ export function PublishedPage() {
                 </div>
 
                 {date && (
-                  <div className="text-[11px] text-sub">
-                    Dipublikasi: {fmtDate(date)}
+                  <div className="flex items-center gap-2 rounded-lg bg-success-bg px-3 py-2">
+                    <span className="text-xs font-semibold text-success">
+                      ✅ Dipublikasi pada{" "}
+                      {fmtDate(date, {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </span>
                   </div>
                 )}
 
@@ -296,7 +305,7 @@ export function PublishedPage() {
                 </div>
 
                 <button
-                  onClick={() => handleDelete(p.id)}
+                  onClick={() => setDeleteItem(p)}
                   className="flex items-center justify-center gap-1 rounded-lg border border-danger-bg py-2 text-xs font-medium text-danger transition hover:bg-danger-bg"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -322,6 +331,19 @@ export function PublishedPage() {
           loading={updateMut.isPending}
         />
       )}
+
+      <ConfirmDialog
+        open={!!deleteItem}
+        itemName={deleteItem?.title}
+        message="Konten akan dihapus permanen dari arsip dipublikasi."
+        loading={deleteMut.isPending}
+        onCancel={() => setDeleteItem(null)}
+        onConfirm={async () => {
+          if (!deleteItem) return;
+          await handleDelete(deleteItem.id);
+          setDeleteItem(null);
+        }}
+      />
 
       {toasts.length > 0 && (
         <div className="pointer-events-none fixed bottom-5 right-5 z-[100] flex flex-col gap-2">
